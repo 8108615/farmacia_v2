@@ -11,24 +11,78 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
+
+                <flux:sidebar.group heading="MENÚ PRINCIPAL" class="grid">
+
+                    <flux:sidebar.item
+                        icon="home"
+                        :href="route('dashboard')"
+                        :current="request()->routeIs('dashboard')"
+                        wire:navigate>
+                        Dashboard
                     </flux:sidebar.item>
+
                 </flux:sidebar.group>
+
+                @role('SUPER ADMIN|ADMINISTRADOR')
+                    <flux:sidebar.group heading="ADMINISTRACIÓN" class="grid">
+
+                        <flux:sidebar.item
+                            icon="users"
+                            :href="route('admin.usuarios.index')"
+                            :current="request()->routeIs('admin.usuarios.*')"
+                            wire:navigate>
+                            Usuarios
+                        </flux:sidebar.item>
+
+                        <flux:sidebar.item icon="shield-check" disabled>
+                            Roles y Permisos
+                        </flux:sidebar.item>
+
+                    </flux:sidebar.group>
+                @endrole
+
+                <flux:sidebar.group heading="GESTIÓN FARMACÉUTICA" class="grid">
+
+                    <flux:sidebar.item icon="tag" disabled>
+                        Categorías
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="archive-box" disabled>
+                        Productos
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="cube" disabled>
+                        Inventario
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="truck" disabled>
+                        Proveedores
+                    </flux:sidebar.item>
+
+                </flux:sidebar.group>
+
+                <flux:sidebar.group heading="OPERACIONES" class="grid">
+
+                    <flux:sidebar.item icon="shopping-cart" disabled>
+                        Compras
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="banknotes" disabled>
+                        Ventas
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="chart-bar" disabled>
+                        Reportes
+                    </flux:sidebar.item>
+
+                </flux:sidebar.group>
+
             </flux:sidebar.nav>
 
             <flux:spacer />
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
 
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
