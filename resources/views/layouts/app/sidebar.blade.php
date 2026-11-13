@@ -35,7 +35,11 @@
                             Usuarios
                         </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="shield-check" disabled>
+                        <flux:sidebar.item
+                            icon="shield-check"
+                            :href="route('admin.roles.index')"
+                            :current="request()->routeIs('admin.roles.*')"
+                            wire:navigate>
                             Roles y Permisos
                         </flux:sidebar.item>
 

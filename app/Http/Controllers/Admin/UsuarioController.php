@@ -18,8 +18,22 @@ class UsuarioController extends Controller
     {
         $buscar = trim((string) $request->input('buscar', ''));
 
+        // Determinar qué usuarios queremos mostrar.
+        $filtro = $request->input('filtro', 'activos');
+
+        if (!in_array($filtro, ['activos', 'eliminados'], true)) {
+            $filtro = 'activos';
+        }
+
         $usuarios = User::query()
             ->with('roles')
+
+            // Mostrar usuarios eliminados o usuarios activos.
+            ->when($filtro === 'eliminados', function ($query) {
+                $query->onlyTrashed();
+            })
+
+            // Buscar por nombre, correo o documento.
             ->when($buscar !== '', function ($query) use ($buscar) {
                 $query->where(function ($q) use ($buscar) {
                     $q->where('name', 'like', "%{$buscar}%")
@@ -27,11 +41,16 @@ class UsuarioController extends Controller
                     ->orWhere('numero_documento', 'like', "%{$buscar}%");
                 });
             })
+
+            // Ordenar y paginar.
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.usuarios.index', compact('usuarios', 'buscar'));
+        return view(
+            'admin.usuarios.index',
+            compact('usuarios', 'buscar', 'filtro')
+        );
     }
 
     /**
@@ -332,5 +351,28 @@ class UsuarioController extends Controller
             ->route('admin.usuarios.index')
             ->with('success', '¡Usuario eliminado correctamente!');
     }
+
+    /**
+     * Restaurar un usuario eliminado lógicamente.
+     */
+    public function restaurar(string $id)
+    {
+        // Buscar únicamente entre usuarios eliminados.
+        $usuario = User::onlyTrashed()->findOrFail($id);
+
+        // Restaurar el usuario.
+        $usuario->restore();
+
+        // Regresar al listado de usuarios eliminados.
+        return redirect()
+            ->route('admin.usuarios.index', [
+                'filtro' => 'eliminados'
+            ])
+            ->with(
+                'success',
+                '¡Usuario restaurado correctamente!'
+            );
+    }
+
 
 }
