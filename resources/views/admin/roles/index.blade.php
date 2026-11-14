@@ -1,4 +1,3 @@
-
 <x-layouts::app :title="'Roles y Permisos'">
 
     <div class="flex flex-col gap-6">

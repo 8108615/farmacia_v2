@@ -386,16 +386,28 @@
                         Contraseña <span class="text-red-400">*</span>
                     </label>
 
-                    <input
-                        type="password"
-                        name="password"
-                        id="password"
-                        placeholder="Mínimo 8 caracteres"
-                        minlength="8"
-                        required
-                        autocomplete="new-password"
-                        class="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:ring-blue-500"
-                    >
+                    <div class="relative">
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            placeholder="Mínimo 8 caracteres"
+                            minlength="8"
+                            required
+                            autocomplete="new-password"
+                            class="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-3 pr-16 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:ring-blue-500"
+                        >
+
+                        <button
+                            type="button"
+                            data-toggle-password="password"
+                            aria-label="Mostrar contraseña"
+                            aria-pressed="false"
+                            class="absolute inset-y-0 right-3 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                        >
+                            Mostrar
+                        </button>
+                    </div>
 
                     @error('password')
                         <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
@@ -408,17 +420,30 @@
                         Confirmar Contraseña <span class="text-red-400">*</span>
                     </label>
 
-                    <input
-                        type="password"
-                        name="password_confirmation"
-                        id="password_confirmation"
-                        placeholder="Repita la contraseña"
-                        minlength="8"
-                        required
-                        autocomplete="new-password"
-                        class="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:ring-blue-500"
-                    >
+                    <div class="relative">
+                        <input
+                            type="password"
+                            name="password_confirmation"
+                            id="password_confirmation"
+                            placeholder="Repita la contraseña"
+                            minlength="8"
+                            required
+                            autocomplete="new-password"
+                            class="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-3 pr-16 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:ring-blue-500"
+                        >
+
+                        <button
+                            type="button"
+                            data-toggle-password="password_confirmation"
+                            aria-label="Mostrar confirmación de contraseña"
+                            aria-pressed="false"
+                            class="absolute inset-y-0 right-3 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                        >
+                            Mostrar
+                        </button>
+                    </div>
                 </div>
+
 
             </div>
 
@@ -434,9 +459,10 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    id="btnRegistrarUsuario"
+                    class="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    Registrar Usuario
+                    <span id="textoRegistrarUsuario">Registrar Usuario</span>
                 </button>
 
             </div>
@@ -449,61 +475,202 @@
 
 <!-- VISTA PREVIA DE FOTOGRAFÍA -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+(function () {
+    function inicializarFormularioUsuario() {
+        const inputFoto = document.getElementById('foto_perfil');
+        const preview = document.getElementById('fotoPreview');
+        const placeholder = document.getElementById('fotoPlaceholder');
+        const nombreFoto = document.getElementById('nombreFoto');
 
-    const inputFoto = document.getElementById('foto_perfil');
-    const preview = document.getElementById('fotoPreview');
-    const placeholder = document.getElementById('fotoPlaceholder');
-    const nombreFoto = document.getElementById('nombreFoto');
-
-    let fotoUrl = null;
-
-    inputFoto.addEventListener('change', function () {
-
-        const archivo = this.files[0];
-
-        if (fotoUrl) {
-            URL.revokeObjectURL(fotoUrl);
-            fotoUrl = null;
-        }
-
-        if (!archivo) {
-            preview.removeAttribute('src');
-            preview.classList.add('hidden');
-            placeholder.classList.remove('hidden');
-            nombreFoto.textContent = 'Ningún archivo seleccionado';
-            return;
-        }
-
-        const tiposPermitidos = [
-            'image/jpeg',
-            'image/png',
-            'image/webp'
-        ];
+        // ==========================================
+        // VISTA PREVIA DE FOTOGRAFÍA
+        // ==========================================
 
         if (
-            !tiposPermitidos.includes(archivo.type) ||
-            archivo.size > 2 * 1024 * 1024
+            inputFoto &&
+            preview &&
+            placeholder &&
+            nombreFoto &&
+            !inputFoto.dataset.inicializado
         ) {
-            alert('Seleccione una imagen JPG, PNG o WEBP de máximo 2 MB.');
+            inputFoto.dataset.inicializado = 'true';
 
-            inputFoto.value = '';
-            preview.removeAttribute('src');
-            preview.classList.add('hidden');
-            placeholder.classList.remove('hidden');
-            nombreFoto.textContent = 'Ningún archivo seleccionado';
+            let fotoUrl = null;
 
-            return;
+            inputFoto.addEventListener('change', function () {
+                const archivo = this.files[0];
+
+                if (fotoUrl) {
+                    URL.revokeObjectURL(fotoUrl);
+                    fotoUrl = null;
+                }
+
+                const limpiarVistaPrevia = () => {
+                    preview.removeAttribute('src');
+                    preview.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    nombreFoto.textContent = 'Ningún archivo seleccionado';
+                };
+
+                if (!archivo) {
+                    limpiarVistaPrevia();
+                    return;
+                }
+
+                const tiposPermitidos = [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp'
+                ];
+
+                const tamanoMaximo = 2 * 1024 * 1024;
+
+                if (
+                    !tiposPermitidos.includes(archivo.type) ||
+                    archivo.size > tamanoMaximo
+                ) {
+                    alert(
+                        'Seleccione una imagen JPG, PNG o WEBP de máximo 2 MB.'
+                    );
+
+                    inputFoto.value = '';
+                    limpiarVistaPrevia();
+                    return;
+                }
+
+                fotoUrl = URL.createObjectURL(archivo);
+
+                preview.onload = function () {
+                    if (fotoUrl) {
+                        URL.revokeObjectURL(fotoUrl);
+                        fotoUrl = null;
+                    }
+                };
+
+                preview.src = fotoUrl;
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+
+                nombreFoto.textContent = archivo.name;
+            });
         }
 
-        fotoUrl = URL.createObjectURL(archivo);
+        // ==========================================
+        // MOSTRAR / OCULTAR CONTRASEÑAS
+        // ==========================================
 
-        preview.src = fotoUrl;
-        preview.classList.remove('hidden');
-        placeholder.classList.add('hidden');
+        document.querySelectorAll('[data-toggle-password]').forEach(
+            function (boton) {
+                if (boton.dataset.inicializado) return;
 
-        nombreFoto.textContent = archivo.name;
-    });
+                boton.dataset.inicializado = 'true';
 
-});
+                boton.addEventListener('click', function () {
+                    const campoId = this.dataset.togglePassword;
+                    const campo = document.getElementById(campoId);
+
+                    if (!campo) return;
+
+                    const mostrar = campo.type === 'password';
+
+                    campo.type = mostrar ? 'text' : 'password';
+                    this.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+
+                    this.setAttribute(
+                        'aria-pressed',
+                        mostrar ? 'true' : 'false'
+                    );
+
+                    this.setAttribute(
+                        'aria-label',
+                        mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                    );
+                });
+            }
+        );
+
+        // ==========================================
+        // PREVENIR ENVÍOS DUPLICADOS
+        // ==========================================
+
+        const botonRegistrar = document.getElementById(
+            'btnRegistrarUsuario'
+        );
+
+        const textoRegistrar = document.getElementById(
+            'textoRegistrarUsuario'
+        );
+
+        const formulario = botonRegistrar?.closest('form');
+
+        if (
+            formulario &&
+            botonRegistrar &&
+            textoRegistrar &&
+            !formulario.dataset.inicializado
+        ) {
+            formulario.dataset.inicializado = 'true';
+
+            formulario.addEventListener('submit', function (evento) {
+                if (formulario.dataset.enviando === 'true') {
+                    evento.preventDefault();
+                    return;
+                }
+
+                // El navegador ya comprobó los campos required,
+                // formatos y demás validaciones HTML.
+                formulario.dataset.enviando = 'true';
+
+                botonRegistrar.disabled = true;
+                textoRegistrar.textContent = 'Registrando usuario...';
+            });
+        }
+    }
+
+    // Primera carga y navegación con Livewire.
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            inicializarFormularioUsuario,
+            { once: true }
+        );
+    } else {
+        inicializarFormularioUsuario();
+    }
+
+    // Evitar registrar el mismo listener varias veces.
+    if (!window.__farmaciaCrearUsuarioNavegacion) {
+        window.__farmaciaCrearUsuarioNavegacion = true;
+
+        document.addEventListener(
+            'livewire:navigated',
+            inicializarFormularioUsuario
+        );
+    }
+
+    // Restaurar el botón si se regresa a la página
+    // mediante el historial del navegador.
+    if (!window.__farmaciaCrearUsuarioPageshow) {
+        window.__farmaciaCrearUsuarioPageshow = true;
+
+        window.addEventListener('pageshow', function () {
+            const boton = document.getElementById(
+                'btnRegistrarUsuario'
+            );
+
+            const texto = document.getElementById(
+                'textoRegistrarUsuario'
+            );
+
+            const formulario = boton?.closest('form');
+
+            if (boton && texto && formulario) {
+                boton.disabled = false;
+                texto.textContent = 'Registrar Usuario';
+                formulario.dataset.enviando = 'false';
+            }
+        });
+    }
+})();
 </script>
+

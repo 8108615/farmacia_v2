@@ -1,8 +1,11 @@
+
 <x-layouts::app :title="'Usuarios'">
 
     <div class="flex flex-col gap-6">
 
-        <!-- ENCABEZADO -->
+        {{-- ============================================
+             ENCABEZADO
+        ============================================ --}}
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
@@ -15,19 +18,26 @@
                 </p>
             </div>
 
-            <a href="{{ route('admin.usuarios.create') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
+            {{-- Crear usuario --}}
+            @can('usuarios.crear')
+                <a href="{{ route('admin.usuarios.create') }}"
+                   class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
 
-                <span class="text-lg leading-none">+</span>
-                Crear nuevo
-            </a>
+                    <span class="text-lg leading-none">+</span>
+                    Crear nuevo
+
+                </a>
+            @endcan
 
         </div>
 
-        <!-- PESTAÑAS DE USUARIOS -->
+
+        {{-- ============================================
+             PESTAÑAS DE USUARIOS
+        ============================================ --}}
         <div class="flex flex-wrap gap-3">
 
-            <!-- Usuarios activos -->
+            {{-- Usuarios activos --}}
             <a href="{{ route('admin.usuarios.index', ['filtro' => 'activos']) }}"
                class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition
                {{ $filtro === 'activos'
@@ -39,28 +49,33 @@
                 Usuarios activos
             </a>
 
-            <!-- Usuarios eliminados -->
-            <a href="{{ route('admin.usuarios.index', ['filtro' => 'eliminados']) }}"
-               class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition
-               {{ $filtro === 'eliminados'
-                   ? 'bg-red-600 text-white'
-                   : 'border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800' }}">
+            {{-- Usuarios eliminados --}}
+            @can('usuarios.restaurar')
+                <a href="{{ route('admin.usuarios.index', ['filtro' => 'eliminados']) }}"
+                   class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition
+                   {{ $filtro === 'eliminados'
+                       ? 'bg-red-600 text-white'
+                       : 'border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800' }}">
 
-                <flux:icon.trash class="size-4" />
+                    <flux:icon.trash class="size-4" />
 
-                Usuarios eliminados
-            </a>
+                    Usuarios eliminados
+                </a>
+            @endcan
 
         </div>
 
-        <!-- BUSCADOR -->
+
+        {{-- ============================================
+             BUSCADOR
+        ============================================ --}}
         <div class="rounded-xl border border-zinc-700 bg-zinc-900 p-5">
 
             <form method="GET"
                   action="{{ route('admin.usuarios.index') }}"
                   class="flex flex-col gap-3 sm:flex-row">
 
-                <!-- Mantener filtro seleccionado -->
+                {{-- Mantener filtro seleccionado --}}
                 <input type="hidden"
                        name="filtro"
                        value="{{ $filtro }}">
@@ -87,18 +102,19 @@
 
         </div>
 
-        <!-- TABLA DE USUARIOS -->
+
+        {{-- ============================================
+             TABLA DE USUARIOS
+        ============================================ --}}
         <div class="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
 
-            <!-- Encabezado de la tabla -->
+            {{-- Encabezado de la tabla --}}
             <div class="flex items-center justify-between border-b border-zinc-700 px-5 py-4">
 
                 <h2 class="text-lg font-semibold text-white">
-
                     {{ $filtro === 'eliminados'
                         ? 'Usuarios Eliminados'
                         : 'Listado de Usuarios' }}
-
                 </h2>
 
                 <span class="text-sm text-zinc-400">
@@ -133,14 +149,13 @@
 
                             <tr class="transition hover:bg-zinc-800/60">
 
-                                <!-- NÚMERO -->
+                                {{-- NÚMERO --}}
                                 <td class="px-4 py-4 text-center text-zinc-300">
-
                                     {{ $usuarios->firstItem() + $loop->index }}
-
                                 </td>
 
-                                <!-- FOTO -->
+
+                                {{-- FOTO --}}
                                 <td class="px-4 py-4">
 
                                     <div class="flex justify-center">
@@ -156,9 +171,7 @@
                                         @else
 
                                             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
-
-                                                {{ strtoupper(substr($usuario->name, 0, 1)) }}
-
+                                                {{ mb_strtoupper(mb_substr($usuario->name, 0, 1)) }}
                                             </div>
 
                                         @endif
@@ -167,15 +180,14 @@
 
                                 </td>
 
-                                <!-- ROL -->
+
+                                {{-- ROL --}}
                                 <td class="px-4 py-4">
 
                                     @forelse ($usuario->roles as $rol)
 
                                         <span class="inline-flex rounded-md bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-300">
-
                                             {{ $rol->name }}
-
                                         </span>
 
                                     @empty
@@ -188,160 +200,172 @@
 
                                 </td>
 
-                                <!-- NOMBRE -->
+
+                                {{-- NOMBRE --}}
                                 <td class="px-4 py-4 font-medium text-white">
-
                                     {{ $usuario->name }}
-
                                 </td>
 
-                                <!-- CORREO -->
-                                <td class="px-4 py-4 text-zinc-300">
 
+                                {{-- CORREO --}}
+                                <td class="px-4 py-4 text-zinc-300">
                                     {{ $usuario->email }}
-
                                 </td>
 
-                                <!-- DOCUMENTO -->
-                                <td class="px-4 py-4 text-zinc-300">
 
+                                {{-- DOCUMENTO --}}
+                                <td class="px-4 py-4 text-zinc-300">
                                     {{ $usuario->numero_documento }}
-
                                 </td>
 
-                                <!-- GÉNERO -->
+
+                                {{-- GÉNERO --}}
                                 <td class="px-4 py-4 text-zinc-300">
-
                                     {{ $usuario->genero }}
-
                                 </td>
 
-                                <!-- ESTADO -->
+
+                                {{-- ESTADO --}}
                                 <td class="px-4 py-4 text-center">
 
                                     @if ($filtro === 'eliminados')
 
                                         <span class="inline-flex rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
-
                                             Eliminado
-
                                         </span>
 
                                     @elseif ($usuario->estado === 'Activo')
 
                                         <span class="inline-flex rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
-
                                             Activo
-
                                         </span>
 
                                     @else
 
                                         <span class="inline-flex rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
-
                                             Inactivo
-
                                         </span>
 
                                     @endif
 
                                 </td>
 
-                                <!-- ACCIONES -->
+
+                                {{-- ============================================
+                                     ACCIONES SEGÚN PERMISOS
+                                ============================================ --}}
                                 <td class="px-4 py-4">
 
                                     <div class="flex items-center justify-center gap-2">
 
                                         @if ($filtro === 'eliminados')
 
-                                            <!-- RESTAURAR -->
-                                            <form
-                                                id="form-restaurar-{{ $usuario->id }}"
-                                                action="{{ route('admin.usuarios.restaurar', $usuario->id) }}"
-                                                method="POST"
-                                                class="inline"
-                                            >
-
-                                                @csrf
-                                                @method('PATCH')
-
-                                                <button
-                                                    type="button"
-                                                    onclick="confirmarRestaurarUsuario({{ $usuario->id }}, @js($usuario->name))"
-                                                    class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700"
-                                                >
-
-                                                    <flux:icon.arrow-path class="size-4" />
-
-                                                    Restaurar
-
-                                                </button>
-
-                                            </form>
-
-                                        @else
-
-                                            <!-- VER -->
-                                            <a href="{{ route('admin.usuarios.show', $usuario->id) }}"
-                                               class="inline-flex items-center gap-1.5 rounded-md bg-zinc-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-600">
-
-                                                <flux:icon.eye class="size-4" />
-
-                                                Ver
-
-                                            </a>
-
-                                            <!-- EDITAR -->
-                                            <a href="{{ route('admin.usuarios.edit', $usuario->id) }}"
-                                               class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700">
-
-                                                <flux:icon.pencil-square class="size-4" />
-
-                                                Editar
-
-                                            </a>
-
-                                            <!-- ELIMINAR -->
-                                            @if ($usuario->hasRole('SUPER ADMIN') || $usuario->id === auth()->id())
-
-                                                <span
-                                                    title="Este usuario está protegido"
-                                                    class="inline-flex items-center gap-1.5 rounded-md bg-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-300"
-                                                >
-
-                                                    <flux:icon.shield-check class="size-4" />
-
-                                                    Protegido
-
-                                                </span>
-
-                                            @else
+                                            {{-- RESTAURAR --}}
+                                            @can('usuarios.restaurar')
 
                                                 <form
-                                                    id="form-eliminar-{{ $usuario->id }}"
-                                                    action="{{ route('admin.usuarios.destroy', $usuario->id) }}"
+                                                    id="form-restaurar-{{ $usuario->id }}"
+                                                    action="{{ route('admin.usuarios.restaurar', $usuario->id) }}"
                                                     method="POST"
                                                     class="inline"
                                                 >
 
                                                     @csrf
-                                                    @method('DELETE')
+                                                    @method('PATCH')
 
                                                     <button
                                                         type="button"
-                                                        onclick="confirmarEliminarUsuario({{ $usuario->id }}, @js($usuario->name))"
-                                                        class="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-700"
+                                                        onclick="confirmarRestaurarUsuario({{ $usuario->id }}, @js($usuario->name))"
+                                                        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700"
                                                     >
 
-                                                        <flux:icon.trash class="size-4" />
+                                                        <flux:icon.arrow-path class="size-4" />
 
-                                                        Eliminar
+                                                        Restaurar
 
                                                     </button>
 
                                                 </form>
 
-                                            @endif
+                                            @endcan
+
+                                        @else
+
+                                            {{-- VER --}}
+                                            @can('usuarios.ver')
+
+                                                <a href="{{ route('admin.usuarios.show', $usuario->id) }}"
+                                                   class="inline-flex items-center gap-1.5 rounded-md bg-zinc-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-600">
+
+                                                    <flux:icon.eye class="size-4" />
+
+                                                    Ver
+
+                                                </a>
+
+                                            @endcan
+
+
+                                            {{-- EDITAR --}}
+                                            @can('usuarios.editar')
+
+                                                <a href="{{ route('admin.usuarios.edit', $usuario->id) }}"
+                                                   class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700">
+
+                                                    <flux:icon.pencil-square class="size-4" />
+
+                                                    Editar
+
+                                                </a>
+
+                                            @endcan
+
+
+                                            {{-- ELIMINAR --}}
+                                            @can('usuarios.eliminar')
+
+                                                @if ($usuario->hasRole('SUPER ADMIN') || $usuario->id === auth()->id())
+
+                                                    <span
+                                                        title="Este usuario está protegido"
+                                                        class="inline-flex items-center gap-1.5 rounded-md bg-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-300"
+                                                    >
+
+                                                        <flux:icon.shield-check class="size-4" />
+
+                                                        Protegido
+
+                                                    </span>
+
+                                                @else
+
+                                                    <form
+                                                        id="form-eliminar-{{ $usuario->id }}"
+                                                        action="{{ route('admin.usuarios.destroy', $usuario->id) }}"
+                                                        method="POST"
+                                                        class="inline"
+                                                    >
+
+                                                        @csrf
+                                                        @method('DELETE')
+
+                                                        <button
+                                                            type="button"
+                                                            onclick="confirmarEliminarUsuario({{ $usuario->id }}, @js($usuario->name))"
+                                                            class="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-700"
+                                                        >
+
+                                                            <flux:icon.trash class="size-4" />
+
+                                                            Eliminar
+
+                                                        </button>
+
+                                                    </form>
+
+                                                @endif
+
+                                            @endcan
 
                                         @endif
 
@@ -354,7 +378,6 @@
                         @empty
 
                             <tr>
-
                                 <td colspan="9"
                                     class="px-5 py-12 text-center text-zinc-400">
 
@@ -363,7 +386,6 @@
                                         : 'No se encontraron usuarios registrados.' }}
 
                                 </td>
-
                             </tr>
 
                         @endforelse
@@ -374,7 +396,10 @@
 
             </div>
 
-            <!-- PAGINACIÓN -->
+
+            {{-- ============================================
+                 PAGINACIÓN
+            ============================================ --}}
             <div class="border-t border-zinc-700 px-5 py-4">
 
                 <div class="mb-3 text-sm text-zinc-400">

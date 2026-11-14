@@ -6,43 +6,57 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
 class UsuarioController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * ============================================
+     * LISTADO DE USUARIOS
+     * ============================================
      */
     public function index(Request $request)
     {
+        abort_unless(
+            $request->user()->can('usuarios.ver'),
+            403,
+            'No tienes permisos para consultar usuarios.'
+        );
+
         $buscar = trim((string) $request->input('buscar', ''));
 
-        // Determinar qué usuarios queremos mostrar.
         $filtro = $request->input('filtro', 'activos');
 
         if (!in_array($filtro, ['activos', 'eliminados'], true)) {
             $filtro = 'activos';
         }
 
+        // Proteger el listado de usuarios eliminados.
+        if ($filtro === 'eliminados') {
+            abort_unless(
+                $request->user()->can('usuarios.restaurar'),
+                403,
+                'No tienes permisos para consultar usuarios eliminados.'
+            );
+        }
+
         $usuarios = User::query()
             ->with('roles')
 
-            // Mostrar usuarios eliminados o usuarios activos.
             ->when($filtro === 'eliminados', function ($query) {
                 $query->onlyTrashed();
             })
 
-            // Buscar por nombre, correo o documento.
             ->when($buscar !== '', function ($query) use ($buscar) {
                 $query->where(function ($q) use ($buscar) {
                     $q->where('name', 'like', "%{$buscar}%")
-                    ->orWhere('email', 'like', "%{$buscar}%")
-                    ->orWhere('numero_documento', 'like', "%{$buscar}%");
+                        ->orWhere('email', 'like', "%{$buscar}%")
+                        ->orWhere('numero_documento', 'like', "%{$buscar}%");
                 });
             })
 
-            // Ordenar y paginar.
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
@@ -54,11 +68,27 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * ============================================
+     * FORMULARIO DE CREACIÓN
+     * ============================================
      */
-    public function create()
+    public function create(Request $request)
     {
+        abort_unless(
+            $request->user()->can('usuarios.crear'),
+            403,
+            'No tienes permisos para crear usuarios.'
+        );
+
         $roles = Role::query()
+            ->where('guard_name', 'web')
+
+            // Solo SUPER ADMIN puede asignar su propio rol.
+            ->when(
+                ! $request->user()->hasRole('SUPER ADMIN'),
+                fn ($query) => $query->where('name', '!=', 'SUPER ADMIN')
+            )
+
             ->orderBy('name')
             ->get();
 
@@ -66,12 +96,25 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * ============================================
+     * GUARDAR NUEVO USUARIO
+     * ============================================
      */
     public function store(Request $request)
     {
+        abort_unless(
+            $request->user()->can('usuarios.crear'),
+            403,
+            'No tienes permisos para registrar usuarios.'
+        );
+
+        // Validar los datos del formulario.
         $datos = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
 
             'email' => [
                 'required',
@@ -92,9 +135,17 @@ class UsuarioController extends Controller
                 Rule::unique('users', 'numero_documento'),
             ],
 
-            'celular' => ['required', 'string', 'max:30'],
+            'celular' => [
+                'required',
+                'string',
+                'max:30',
+            ],
 
-            'direccion' => ['required', 'string', 'max:255'],
+            'direccion' => [
+                'required',
+                'string',
+                'max:255',
+            ],
 
             'fecha_nacimiento' => [
                 'required',
@@ -135,66 +186,167 @@ class UsuarioController extends Controller
 
         $rol = $datos['rol'];
 
+        // ============================================
+        // PROTECCIÓN DEL ROL SUPER ADMIN
+        // ============================================
+
+        if (
+            $rol === 'SUPER ADMIN' &&
+            ! $request->user()->hasRole('SUPER ADMIN')
+        ) {
+            abort(
+                403,
+                'No tienes autorización para asignar el rol SUPER ADMIN.'
+            );
+        }
+
         unset($datos['rol'], $datos['foto_perfil']);
 
-        $usuario = DB::transaction(function () use ($datos, $rol) {
-            $usuario = User::create($datos);
+        // ============================================
+        // GUARDAR FOTOGRAFÍA
+        // ============================================
 
-            $usuario->assignRole($rol);
-
-            return $usuario;
-        });
+        $rutaNueva = null;
 
         if ($request->hasFile('foto_perfil')) {
-            $ruta = $request->file('foto_perfil')
+            $rutaNueva = $request->file('foto_perfil')
                 ->store('usuarios', 'public');
 
-            $usuario->update([
-                'foto_perfil' => $ruta,
-            ]);
+            $datos['foto_perfil'] = $rutaNueva;
+        }
+
+        // ============================================
+        // REGISTRAR USUARIO Y ASIGNAR ROL
+        // ============================================
+
+        try {
+            DB::transaction(function () use ($datos, $rol) {
+                $usuario = User::create($datos);
+
+                $usuario->assignRole($rol);
+            });
+        } catch (\Throwable $e) {
+
+            // Si falla el registro, eliminar la foto nueva.
+            if ($rutaNueva !== null) {
+                Storage::disk('public')->delete($rutaNueva);
+            }
+
+            throw $e;
         }
 
         return redirect()
             ->route('admin.usuarios.index')
-            ->with('success', 'Usuario registrado correctamente.');
+            ->with(
+                'success',
+                '¡Usuario registrado correctamente!'
+            );
     }
 
     /**
-     * Display the specified resource.
+     * ============================================
+     * MOSTRAR DETALLES DEL USUARIO
+     * ============================================
      */
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
+        abort_unless(
+            $request->user()->can('usuarios.ver'),
+            403,
+            'No tienes permisos para consultar este usuario.'
+        );
+
         $usuario = User::with('roles')->findOrFail($id);
 
-        return view('admin.usuarios.show', compact('usuario'));
+        return view(
+            'admin.usuarios.show',
+            compact('usuario')
+        );
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * ============================================
+     * FORMULARIO DE EDICIÓN
+     * ============================================
      */
-    public function edit(string $id)
+    public function edit(Request $request, string $id)
     {
+        abort_unless(
+            $request->user()->can('usuarios.editar'),
+            403,
+            'No tienes permisos para editar usuarios.'
+        );
+
         $usuario = User::with('roles')->findOrFail($id);
+
+        // Solo un SUPER ADMIN puede editar una cuenta
+        // que tenga asignado el rol SUPER ADMIN.
+        if (
+            $usuario->hasRole('SUPER ADMIN') &&
+            ! $request->user()->hasRole('SUPER ADMIN')
+        ) {
+            abort(
+                403,
+                'No tienes autorización para modificar una cuenta SUPER ADMIN.'
+            );
+        }
 
         $roles = Role::query()
             ->where('guard_name', 'web')
+
+            ->when(
+                ! $request->user()->hasRole('SUPER ADMIN'),
+                fn ($query) => $query->where('name', '!=', 'SUPER ADMIN')
+            )
+
             ->orderBy('name')
             ->get();
 
-        return view('admin.usuarios.edit', compact('usuario', 'roles'));
+        return view(
+            'admin.usuarios.edit',
+            compact('usuario', 'roles')
+        );
     }
 
     /**
-     * Update the specified resource in storage.
+     * ============================================
+     * ACTUALIZAR USUARIO
+     * ============================================
      */
-
     public function update(Request $request, string $id)
     {
-        $usuario = User::findOrFail($id);
+        abort_unless(
+            $request->user()->can('usuarios.editar'),
+            403,
+            'No tienes permisos para actualizar usuarios.'
+        );
 
-        // Validar la información del usuario.
+        $usuario = User::with('roles')->findOrFail($id);
+
+        // ============================================
+        // PROTEGER CUENTAS SUPER ADMIN
+        // ============================================
+
+        if (
+            $usuario->hasRole('SUPER ADMIN') &&
+            ! $request->user()->hasRole('SUPER ADMIN')
+        ) {
+            abort(
+                403,
+                'No tienes autorización para modificar una cuenta SUPER ADMIN.'
+            );
+        }
+
+        // ============================================
+        // VALIDAR DATOS
+        // ============================================
+
         $datos = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
 
             'email' => [
                 'required',
@@ -212,11 +364,21 @@ class UsuarioController extends Controller
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('users', 'numero_documento')->ignore($usuario->id),
+                Rule::unique('users', 'numero_documento')
+                    ->ignore($usuario->id),
             ],
 
-            'celular' => ['required', 'string', 'max:30'],
-            'direccion' => ['required', 'string', 'max:255'],
+            'celular' => [
+                'required',
+                'string',
+                'max:30',
+            ],
+
+            'direccion' => [
+                'required',
+                'string',
+                'max:255',
+            ],
 
             'fecha_nacimiento' => [
                 'required',
@@ -240,7 +402,6 @@ class UsuarioController extends Controller
                     ->where('guard_name', 'web'),
             ],
 
-            // La contraseña es opcional al editar.
             'password' => [
                 'nullable',
                 'string',
@@ -258,14 +419,22 @@ class UsuarioController extends Controller
 
         $rol = $datos['rol'];
 
-        unset($datos['rol'], $datos['foto_perfil']);
+        // ============================================
+        // CONTROL DE ASIGNACIÓN SUPER ADMIN
+        // ============================================
 
-        // Conservar la contraseña si no se modifica.
-        if (blank($datos['password'] ?? null)) {
-            unset($datos['password']);
+        if (
+            $rol === 'SUPER ADMIN' &&
+            ! $request->user()->hasRole('SUPER ADMIN')
+        ) {
+            abort(
+                403,
+                'No tienes autorización para asignar el rol SUPER ADMIN.'
+            );
         }
 
-        // Evitar quitar accidentalmente el rol SUPER ADMIN.
+        // Impedir quitar el rol SUPER ADMIN a una
+        // cuenta que ya lo tiene asignado.
         if (
             $usuario->hasRole('SUPER ADMIN') &&
             $rol !== 'SUPER ADMIN'
@@ -276,11 +445,28 @@ class UsuarioController extends Controller
                     'password_confirmation',
                     'foto_perfil'
                 ))
-                ->with('error', 'No se puede cambiar el rol del SUPER ADMIN.');
+                ->with(
+                    'error',
+                    'No se puede cambiar el rol de una cuenta SUPER ADMIN.'
+                );
         }
 
-        // Guardar la nueva fotografía si se seleccionó.
+        unset($datos['rol'], $datos['foto_perfil']);
+
+        // ============================================
+        // CONTRASEÑA OPCIONAL
+        // ============================================
+
+        if (blank($datos['password'] ?? null)) {
+            unset($datos['password']);
+        }
+
+        // ============================================
+        // ACTUALIZAR FOTOGRAFÍA
+        // ============================================
+
         $rutaNueva = null;
+        $rutaAnterior = $usuario->foto_perfil;
 
         if ($request->hasFile('foto_perfil')) {
             $rutaNueva = $request->file('foto_perfil')
@@ -289,90 +475,110 @@ class UsuarioController extends Controller
             $datos['foto_perfil'] = $rutaNueva;
         }
 
-        $rutaAnterior = $usuario->foto_perfil;
+        // ============================================
+        // ACTUALIZAR USUARIO Y ROL
+        // ============================================
 
         try {
             DB::transaction(function () use ($usuario, $datos, $rol) {
+
                 $usuario->update($datos);
 
                 $usuario->syncRoles([$rol]);
             });
         } catch (\Throwable $e) {
-            // Eliminar la fotografía nueva si falla el guardado.
+
+            // Eliminar la nueva foto si falla la actualización.
             if ($rutaNueva !== null) {
-                \Illuminate\Support\Facades\Storage::disk('public')
-                    ->delete($rutaNueva);
+                Storage::disk('public')->delete($rutaNueva);
             }
 
             throw $e;
         }
 
-        // Eliminar la fotografía anterior solo después
-        // de actualizar correctamente la base de datos.
+        // Eliminar la foto anterior después de actualizar.
         if ($rutaNueva !== null && $rutaAnterior) {
-            \Illuminate\Support\Facades\Storage::disk('public')
-                ->delete($rutaAnterior);
+            Storage::disk('public')->delete($rutaAnterior);
         }
 
         return redirect()
             ->route('admin.usuarios.index')
-            ->with('success', '¡Usuario actualizado correctamente!');
+            ->with(
+                'success',
+                '¡Usuario actualizado correctamente!'
+            );
     }
 
-
     /**
-     * Remove the specified resource from storage.
+     * ============================================
+     * ELIMINAR USUARIO (SOFT DELETE)
+     * ============================================
      */
-
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        // 1. Buscar el usuario activo.
+        abort_unless(
+            $request->user()->can('usuarios.eliminar'),
+            403,
+            'No tienes permisos para eliminar usuarios.'
+        );
+
         $usuario = User::findOrFail($id);
 
-        // 2. Impedir eliminar al usuario que inició sesión.
-        if ($usuario->id === auth()->id()) {
+        // Impedir eliminar la propia cuenta.
+        if ($usuario->id === $request->user()->id) {
             return redirect()
                 ->route('admin.usuarios.index')
-                ->with('error', 'No puedes eliminar tu propia cuenta.');
+                ->with(
+                    'error',
+                    'No puedes eliminar tu propia cuenta.'
+                );
         }
 
-        // 3. Proteger a los usuarios SUPER ADMIN.
+        // Proteger cuentas SUPER ADMIN.
         if ($usuario->hasRole('SUPER ADMIN')) {
             return redirect()
                 ->route('admin.usuarios.index')
-                ->with('error', 'No se puede eliminar un usuario con el rol SUPER ADMIN.');
+                ->with(
+                    'error',
+                    'No se puede eliminar una cuenta SUPER ADMIN.'
+                );
         }
 
-        // 4. Eliminar lógicamente al usuario.
+        // Eliminación lógica.
         $usuario->delete();
 
-        // 5. Regresar al listado con SweetAlert2.
         return redirect()
             ->route('admin.usuarios.index')
-            ->with('success', '¡Usuario eliminado correctamente!');
+            ->with(
+                'success',
+                '¡Usuario eliminado correctamente!'
+            );
     }
 
     /**
-     * Restaurar un usuario eliminado lógicamente.
+     * ============================================
+     * RESTAURAR USUARIO ELIMINADO
+     * ============================================
      */
-    public function restaurar(string $id)
+    public function restaurar(Request $request, string $id)
     {
-        // Buscar únicamente entre usuarios eliminados.
+        abort_unless(
+            $request->user()->can('usuarios.restaurar'),
+            403,
+            'No tienes permisos para restaurar usuarios.'
+        );
+
         $usuario = User::onlyTrashed()->findOrFail($id);
 
-        // Restaurar el usuario.
         $usuario->restore();
 
-        // Regresar al listado de usuarios eliminados.
         return redirect()
             ->route('admin.usuarios.index', [
-                'filtro' => 'eliminados'
+                'filtro' => 'eliminados',
             ])
             ->with(
                 'success',
                 '¡Usuario restaurado correctamente!'
             );
     }
-
-
 }
