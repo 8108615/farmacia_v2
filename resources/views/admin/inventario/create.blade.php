@@ -166,10 +166,9 @@
                             name="fecha_vencimiento"
                             id="fecha_vencimiento"
                             value="{{ old('fecha_vencimiento') }}"
-                            min="{{ now()->addDay()->toDateString() }}"
                             required
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none">
-
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none"
+                        >
                     </div>
 
                 </div>

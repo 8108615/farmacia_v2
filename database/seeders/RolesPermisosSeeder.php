@@ -11,16 +11,27 @@ class RolesPermisosSeeder extends Seeder
 {
     public function run(): void
     {
+        // ========================================
+        // LIMPIAR CACHÉ DE PERMISOS
+        // ========================================
+
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // SUPER ADMIN: todos los permisos.
+        // ========================================
+        // SUPER ADMIN
+        // ========================================
+
+        // Tiene todos los permisos del sistema.
         $superAdmin = Role::findByName('SUPER ADMIN', 'web');
 
         $superAdmin->syncPermissions(
             Permission::where('guard_name', 'web')->get()
         );
 
+        // ========================================
         // ADMINISTRADOR
+        // ========================================
+
         $administrador = Role::findByName('ADMINISTRADOR', 'web');
 
         $administrador->syncPermissions([
@@ -28,26 +39,38 @@ class RolesPermisosSeeder extends Seeder
             'usuarios.crear',
             'usuarios.editar',
             'usuarios.restaurar',
+
             'roles.ver',
+
             'categorias.ver',
             'categorias.crear',
             'categorias.editar',
+
             'productos.ver',
             'productos.crear',
             'productos.editar',
+
             'inventario.ver',
             'inventario.gestionar',
+            'inventario.ajustar',
+
             'proveedores.ver',
             'proveedores.crear',
             'proveedores.editar',
+
             'compras.ver',
             'compras.crear',
+
             'ventas.ver',
             'ventas.crear',
+
             'reportes.ver',
         ]);
 
+        // ========================================
         // FARMACÉUTICO
+        // ========================================
+
         $farmaceutico = Role::findByName('FARMACÉUTICO', 'web');
 
         $farmaceutico->syncPermissions([
@@ -57,7 +80,10 @@ class RolesPermisosSeeder extends Seeder
             'ventas.ver',
         ]);
 
+        // ========================================
         // CAJERO
+        // ========================================
+
         $cajero = Role::findByName('CAJERO', 'web');
 
         $cajero->syncPermissions([
@@ -67,20 +93,31 @@ class RolesPermisosSeeder extends Seeder
             'ventas.crear',
         ]);
 
+        // ========================================
         // ALMACÉN
+        // ========================================
+
         $almacen = Role::findByName('ALMACÉN', 'web');
 
         $almacen->syncPermissions([
             'categorias.ver',
+
             'productos.ver',
             'productos.crear',
             'productos.editar',
+
             'inventario.ver',
             'inventario.gestionar',
+
             'proveedores.ver',
+
             'compras.ver',
             'compras.crear',
         ]);
+
+        // ========================================
+        // ACTUALIZAR CACHÉ DE SPATIE
+        // ========================================
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

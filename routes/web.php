@@ -270,6 +270,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
                         ->middleware('permission:inventario.gestionar')
                         ->name('movimientos.store');
 
+                    // ========================================
+                    // HISTORIAL DE MOVIMIENTOS POR LOTE
+                    // ========================================
+
+                    Route::get('/{lote}/historial', 'historial')
+                        ->middleware('permission:inventario.ver')
+                        ->name('historial');
+
                 });
 
         });

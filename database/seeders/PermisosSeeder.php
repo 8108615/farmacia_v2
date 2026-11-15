@@ -10,58 +10,79 @@ class PermisosSeeder extends Seeder
 {
     public function run(): void
     {
+        // Limpiar caché de permisos
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $permisos = [
-            // Usuarios
+            // ========================================
+            // USUARIOS
+            // ========================================
             'usuarios.ver',
             'usuarios.crear',
             'usuarios.editar',
             'usuarios.eliminar',
             'usuarios.restaurar',
 
-            // Roles
+            // ========================================
+            // ROLES
+            // ========================================
             'roles.ver',
             'roles.crear',
             'roles.editar',
             'roles.eliminar',
 
-            // Categorías
+            // ========================================
+            // CATEGORÍAS
+            // ========================================
             'categorias.ver',
             'categorias.crear',
             'categorias.editar',
             'categorias.eliminar',
             'categorias.restaurar',
 
-            // Productos
+            // ========================================
+            // PRODUCTOS
+            // ========================================
             'productos.ver',
             'productos.crear',
             'productos.editar',
             'productos.eliminar',
             'productos.restaurar',
 
-            // Inventario
+            // ========================================
+            // INVENTARIO
+            // ========================================
             'inventario.ver',
             'inventario.gestionar',
+            'inventario.ajustar',
 
-            // Proveedores
+            // ========================================
+            // PROVEEDORES
+            // ========================================
             'proveedores.ver',
             'proveedores.crear',
             'proveedores.editar',
             'proveedores.eliminar',
 
-            // Compras
+            // ========================================
+            // COMPRAS
+            // ========================================
             'compras.ver',
             'compras.crear',
 
-            // Ventas
+            // ========================================
+            // VENTAS
+            // ========================================
             'ventas.ver',
             'ventas.crear',
 
-            // Reportes
+            // ========================================
+            // REPORTES
+            // ========================================
             'reportes.ver',
         ];
 
+        // Registrar permisos sin duplicarlos
         foreach ($permisos as $permiso) {
             Permission::firstOrCreate([
                 'name' => $permiso,
@@ -69,6 +90,7 @@ class PermisosSeeder extends Seeder
             ]);
         }
 
+        // Actualizar caché de Spatie
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

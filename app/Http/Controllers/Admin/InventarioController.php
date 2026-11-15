@@ -18,32 +18,204 @@ class InventarioController extends Controller
      */
     public function index(Request $request)
     {
+        // ========================================
+        // BUSCADOR Y FILTROS
+        // ========================================
+
         $buscar = trim((string) $request->input('buscar', ''));
 
-        $lotes = Lote::query()
+        $filtrosPermitidos = [
+            'todos',
+            'vigentes',
+            'por_vencer',
+            'vencidos',
+            'stock_bajo',
+            'sin_stock',
+        ];
+
+        $filtro = (string) $request->input('filtro', 'todos');
+
+        if (!in_array($filtro, $filtrosPermitidos, true)) {
+            $filtro = 'todos';
+        }
+
+        // ========================================
+        // FECHAS Y STOCK MÍNIMO
+        // ========================================
+
+        $hoy = today();
+        $limiteVencimiento = today()->addDays(30);
+
+        // Umbral provisional para stock bajo.
+        $stockMinimo = 10;
+
+        // ========================================
+        // CONSULTA PRINCIPAL DEL INVENTARIO
+        // ========================================
+
+        $consulta = Lote::query()
             ->with(['producto.categoria'])
             ->whereHas('producto', function ($query) {
                 $query->where('estado', 'Activo');
-            })
-            ->when($buscar !== '', function ($query) use ($buscar) {
-                $query->where(function ($consulta) use ($buscar) {
-                    $consulta
-                        ->where('numero_lote', 'like', "%{$buscar}%")
-                        ->orWhereHas('producto', function ($producto) use ($buscar) {
-                            $producto
-                                ->where('codigo', 'like', "%{$buscar}%")
-                                ->orWhere('nombre', 'like', "%{$buscar}%")
-                                ->orWhere('codigo_barras', 'like', "%{$buscar}%");
-                        });
-                });
-            })
+            });
+
+        // ========================================
+        // BUSCAR PRODUCTOS O LOTES
+        // ========================================
+
+        if ($buscar !== '') {
+
+            $consulta->where(function ($query) use ($buscar) {
+
+                $query
+                    ->where('numero_lote', 'like', "%{$buscar}%")
+                    ->orWhereHas('producto', function ($producto) use ($buscar) {
+
+                        $producto
+                            ->where('codigo', 'like', "%{$buscar}%")
+                            ->orWhere('nombre', 'like', "%{$buscar}%")
+                            ->orWhere('codigo_barras', 'like', "%{$buscar}%");
+
+                    });
+
+            });
+        }
+
+        // ========================================
+        // FILTROS INTELIGENTES
+        // ========================================
+
+        switch ($filtro) {
+
+            case 'vigentes':
+
+                $consulta
+                    ->where('estado', 'Activo')
+                    ->whereDate('fecha_vencimiento', '>', $limiteVencimiento);
+
+                break;
+
+            case 'por_vencer':
+
+                $consulta
+                    ->where('estado', 'Activo')
+                    ->whereDate('fecha_vencimiento', '>=', $hoy)
+                    ->whereDate('fecha_vencimiento', '<=', $limiteVencimiento);
+
+                break;
+
+            case 'vencidos':
+
+                $consulta
+                    ->where('estado', 'Activo')
+                    ->whereDate('fecha_vencimiento', '<', $hoy);
+
+                break;
+
+            case 'stock_bajo':
+
+                $consulta
+                    ->where('estado', 'Activo')
+                    ->where('stock_actual', '>', 0)
+                    ->where('stock_actual', '<=', $stockMinimo);
+
+                break;
+
+            case 'sin_stock':
+
+                $consulta
+                    ->where('estado', 'Activo')
+                    ->where('stock_actual', 0);
+
+                break;
+
+            default:
+
+                // Mostrar todos los lotes no eliminados
+                // cuyos productos estén activos.
+
+                break;
+        }
+
+        // ========================================
+        // PAGINACIÓN
+        // ========================================
+
+        $lotes = $consulta
             ->orderBy('fecha_vencimiento')
+            ->orderBy('id')
             ->paginate(10)
             ->withQueryString();
 
+        // ========================================
+        // ESTADÍSTICAS DEL INVENTARIO
+        // ========================================
+
+        // Las estadísticas son generales.
+        // No dependen del buscador ni del filtro.
+
+        $consultaEstadisticas = Lote::query()
+            ->where('estado', 'Activo')
+            ->whereHas('producto', function ($query) {
+                $query->where('estado', 'Activo');
+            });
+
+        // ========================================
+        // LOTES VIGENTES
+        // ========================================
+
+        $lotesVigentes = (clone $consultaEstadisticas)
+            ->whereDate('fecha_vencimiento', '>', $limiteVencimiento)
+            ->count();
+
+        // ========================================
+        // PRÓXIMOS A VENCER
+        // ========================================
+
+        $lotesPorVencer = (clone $consultaEstadisticas)
+            ->whereDate('fecha_vencimiento', '>=', $hoy)
+            ->whereDate('fecha_vencimiento', '<=', $limiteVencimiento)
+            ->count();
+
+        // ========================================
+        // LOTES VENCIDOS
+        // ========================================
+
+        $lotesVencidos = (clone $consultaEstadisticas)
+            ->whereDate('fecha_vencimiento', '<', $hoy)
+            ->count();
+
+        // ========================================
+        // STOCK BAJO
+        // ========================================
+
+        $lotesStockBajo = (clone $consultaEstadisticas)
+            ->where('stock_actual', '>', 0)
+            ->where('stock_actual', '<=', $stockMinimo)
+            ->count();
+
+        // ========================================
+        // LOTES SIN STOCK
+        // ========================================
+
+        $lotesSinStock = (clone $consultaEstadisticas)
+            ->where('stock_actual', 0)
+            ->count();
+
+        // ========================================
+        // MOSTRAR VISTA
+        // ========================================
+
         return view('admin.inventario.index', compact(
             'lotes',
-            'buscar'
+            'buscar',
+            'filtro',
+            'lotesVigentes',
+            'lotesPorVencer',
+            'lotesVencidos',
+            'lotesStockBajo',
+            'lotesSinStock',
+            'stockMinimo'
         ));
     }
 
@@ -92,7 +264,6 @@ class InventarioController extends Controller
             'fecha_vencimiento' => [
                 'required',
                 'date',
-                'after:today',
                 'after:fecha_fabricacion',
             ],
 
@@ -111,7 +282,7 @@ class InventarioController extends Controller
             'producto_id.exists' => 'El producto seleccionado no está disponible.',
             'numero_lote.required' => 'Ingrese el número de lote.',
             'fecha_vencimiento.required' => 'Ingrese la fecha de vencimiento.',
-            'fecha_vencimiento.after' => 'La fecha de vencimiento debe ser posterior a la fecha actual y a la de fabricación.',
+            'fecha_vencimiento.after' => 'La fecha de vencimiento debe ser posterior a la fecha de fabricación.',
             'stock_actual.required' => 'Ingrese el stock inicial.',
             'stock_actual.min' => 'El stock no puede ser negativo.',
         ]);
@@ -227,69 +398,189 @@ class InventarioController extends Controller
                 'max:2000',
             ],
         ], [
-            'lote_id.required' => 'Seleccione un lote.',
-            'lote_id.exists' => 'El lote seleccionado no está disponible.',
-            'tipo.required' => 'Seleccione el tipo de movimiento.',
-            'tipo.in' => 'El tipo de movimiento no es válido.',
-            'cantidad.required' => 'Ingrese la cantidad.',
-            'cantidad.integer' => 'La cantidad debe ser un número entero.',
-            'cantidad.min' => 'La cantidad debe ser mayor que cero.',
+            'lote_id.required' =>
+                'Seleccione un lote.',
+
+            'lote_id.exists' =>
+                'El lote seleccionado no está disponible.',
+
+            'tipo.required' =>
+                'Seleccione el tipo de movimiento.',
+
+            'tipo.in' =>
+                'El tipo de movimiento no es válido.',
+
+            'cantidad.required' =>
+                'Ingrese la cantidad.',
+
+            'cantidad.integer' =>
+                'La cantidad debe ser un número entero.',
+
+            'cantidad.min' =>
+                'La cantidad debe ser mayor que cero.',
         ]);
+
+        // ========================================
+        // VALIDAR PERMISOS DEL USUARIO
+        // ========================================
+
+        $usuario = $request->user();
+
+        $tipoMovimiento = $datos['tipo'];
+
+        $esAjuste = in_array(
+            $tipoMovimiento,
+            ['Ajuste Entrada', 'Ajuste Salida'],
+            true
+        );
+
+        if ($esAjuste) {
+
+            // Los ajustes requieren un permiso especial.
+
+            abort_unless(
+                $usuario->can('inventario.ajustar'),
+                403,
+                'No tiene permisos para realizar ajustes de inventario.'
+            );
+
+        } else {
+
+            // Entradas y salidas normales.
+
+            abort_unless(
+                $usuario->can('inventario.gestionar'),
+                403,
+                'No tiene permisos para gestionar movimientos de inventario.'
+            );
+        }
+
+        // ========================================
+        // JUSTIFICACIÓN OBLIGATORIA PARA AJUSTES
+        // ========================================
+
+        if (
+            $esAjuste &&
+            blank($datos['observacion'] ?? null)
+        ) {
+
+            throw ValidationException::withMessages([
+                'observacion' =>
+                    'Debe ingresar una justificación para realizar un ajuste de inventario.',
+            ]);
+        }
 
         // ========================================
         // TRANSACCIÓN DE INVENTARIO
         // ========================================
 
-        DB::transaction(function () use ($datos, $request) {
+        DB::transaction(function () use ($datos, $usuario) {
 
-            // Bloquear el lote mientras se actualiza
-            // para evitar movimientos simultáneos.
+            // Bloquear el lote para evitar
+            // movimientos simultáneos.
 
             $lote = Lote::query()
+                ->with('producto')
                 ->whereKey($datos['lote_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // Verificar que el lote siga disponible.
+            // ====================================
+            // VALIDAR ESTADO DEL LOTE Y PRODUCTO
+            // ====================================
 
             if (
                 $lote->estado !== 'Activo' ||
                 $lote->producto === null ||
-                $lote->producto->estado !== 'Activo'
+                $lote->producto->estado !== 'Activo' ||
+                $lote->producto->trashed()
             ) {
+
                 throw ValidationException::withMessages([
-                    'lote_id' => 'El lote o su producto no están activos.',
+                    'lote_id' =>
+                        'El lote o su producto no están disponibles o activos.',
                 ]);
             }
 
+            // ====================================
+            // DATOS DEL MOVIMIENTO
+            // ====================================
+
             $stockAnterior = (int) $lote->stock_actual;
+
             $cantidad = (int) $datos['cantidad'];
+
             $tipo = $datos['tipo'];
+
+            // ====================================
+            // VALIDAR FECHA DE VENCIMIENTO
+            // ====================================
+
+            $fechaVencimiento = \Illuminate\Support\Carbon::parse(
+                $lote->fecha_vencimiento
+            )->startOfDay();
+
+            $hoy = today();
+
+            $loteVencido = $fechaVencimiento->lt($hoy);
+
+            // No permitir salidas normales
+            // de medicamentos vencidos.
+
+            if ($tipo === 'Salida' && $loteVencido) {
+
+                throw ValidationException::withMessages([
+                    'tipo' =>
+                        'No se puede registrar una salida del lote ' .
+                        $lote->numero_lote .
+                        ' porque el medicamento está vencido. ' .
+                        'Utilice Ajuste Salida con la autorización correspondiente.',
+                ]);
+            }
 
             // ====================================
             // CALCULAR NUEVO STOCK
             // ====================================
 
-            if (in_array($tipo, ['Entrada', 'Ajuste Entrada'], true)) {
+            if (in_array(
+                $tipo,
+                ['Entrada', 'Ajuste Entrada'],
+                true
+            )) {
+
+                // Incrementar existencias.
+
                 $stockPosterior = $stockAnterior + $cantidad;
+
             } else {
 
+                // Verificar existencias suficientes.
+
                 if ($cantidad > $stockAnterior) {
+
                     throw ValidationException::withMessages([
-                        'cantidad' => 'La cantidad supera el stock disponible de ' .
+                        'cantidad' =>
+                            'La cantidad supera el stock disponible de ' .
                             $stockAnterior . ' unidades.',
                     ]);
                 }
 
+                // Disminuir existencias.
+
                 $stockPosterior = $stockAnterior - $cantidad;
             }
 
-            // Evitar desbordamiento del campo
-            // unsignedInteger de la base de datos.
+            // ====================================
+            // VALIDAR LÍMITE DE STOCK
+            // ====================================
+
+            // Límite del campo unsignedInteger.
 
             if ($stockPosterior > 4294967295) {
+
                 throw ValidationException::withMessages([
-                    'cantidad' => 'La cantidad supera el límite permitido.',
+                    'cantidad' =>
+                        'La cantidad supera el límite permitido.',
                 ]);
             }
 
@@ -302,12 +593,12 @@ class InventarioController extends Controller
             ]);
 
             // ====================================
-            // REGISTRAR MOVIMIENTO
+            // REGISTRAR HISTORIAL
             // ====================================
 
             MovimientoInventario::create([
                 'lote_id' => $lote->id,
-                'usuario_id' => $request->user()->id,
+                'usuario_id' => $usuario->id,
                 'tipo' => $tipo,
                 'cantidad' => $cantidad,
                 'stock_anterior' => $stockAnterior,
@@ -315,10 +606,52 @@ class InventarioController extends Controller
                 'referencia' => $datos['referencia'] ?? null,
                 'observacion' => $datos['observacion'] ?? null,
             ]);
+
         });
+
+        // ========================================
+        // REDIRECCIÓN
+        // ========================================
 
         return redirect()
             ->route('admin.inventario.index')
-            ->with('success', '¡Movimiento de inventario registrado correctamente!');
+            ->with(
+                'success',
+                '¡Movimiento de inventario registrado correctamente!'
+            );
+    }
+
+    /**
+     * Mostrar el historial de movimientos de un lote.
+     */
+    public function historial(Lote $lote)
+    {
+        // ========================================
+        // VALIDAR DISPONIBILIDAD DEL LOTE
+        // ========================================
+
+        // La consulta excluye lotes eliminados
+        // lógicamente mediante SoftDeletes.
+        $lote->load('producto.categoria');
+
+        // ========================================
+        // CONSULTAR MOVIMIENTOS
+        // ========================================
+
+        $movimientos = MovimientoInventario::query()
+            ->with('usuario')
+            ->where('lote_id', $lote->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(10);
+
+        // ========================================
+        // MOSTRAR VISTA
+        // ========================================
+
+        return view('admin.inventario.historial', compact(
+            'lote',
+            'movimientos'
+        ));
     }
 }
