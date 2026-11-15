@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\CategoriaController;
+use App\Http\Controllers\Admin\ProductoController;
+use App\Http\Controllers\Admin\InventarioController;
 
 // ============================================
 // PÁGINA PRINCIPAL
@@ -184,6 +186,89 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('/{id}', 'show')
                         ->middleware('permission:categorias.ver')
                         ->name('show');
+
+                });
+
+
+            // ====================================
+            // GESTIÓN DE PRODUCTOS
+            // ====================================
+
+            Route::prefix('productos')
+                ->name('productos.')
+                ->controller(ProductoController::class)
+                ->group(function () {
+
+                    // Listado de productos
+                    Route::get('/', 'index')
+                        ->middleware('permission:productos.ver')
+                        ->name('index');
+
+                    // Registrar producto
+                    Route::get('/create', 'create')
+                        ->middleware('permission:productos.crear')
+                        ->name('create');
+
+                    Route::post('/', 'store')
+                        ->middleware('permission:productos.crear')
+                        ->name('store');
+
+                    // Restaurar producto eliminado
+                    Route::patch('/{id}/restaurar', 'restaurar')
+                        ->middleware('permission:productos.restaurar')
+                        ->name('restaurar');
+
+                    // Editar producto
+                    Route::get('/{id}/edit', 'edit')
+                        ->middleware('permission:productos.editar')
+                        ->name('edit');
+
+                    Route::put('/{id}', 'update')
+                        ->middleware('permission:productos.editar')
+                        ->name('update');
+
+                    Route::patch('/{id}', 'update')
+                        ->middleware('permission:productos.editar');
+
+                    // Eliminar producto
+                    Route::delete('/{id}', 'destroy')
+                        ->middleware('permission:productos.eliminar')
+                        ->name('destroy');
+
+                    // Ver detalles
+                    Route::get('/{id}', 'show')
+                        ->middleware('permission:productos.ver')
+                        ->name('show');
+
+                });
+
+            // ====================================
+            // GESTIÓN DE INVENTARIO
+            // ====================================
+
+            Route::prefix('inventario')
+                ->name('inventario.')
+                ->controller(InventarioController::class)
+                ->group(function () {
+
+                    // Listado de inventario
+                    Route::get('/', 'index')
+                        ->middleware('permission:inventario.ver')
+                        ->name('index');
+
+                    // Formulario para registrar lote
+                    Route::get('/create', 'create')
+                        ->middleware('permission:inventario.gestionar')
+                        ->name('create');
+
+                    // Guardar lote
+                    Route::post('/', 'store')
+                        ->middleware('permission:inventario.gestionar')
+                        ->name('store');
+
+                    Route::post('/movimientos', 'registrarMovimiento')
+                        ->middleware('permission:inventario.gestionar')
+                        ->name('movimientos.store');
 
                 });
 

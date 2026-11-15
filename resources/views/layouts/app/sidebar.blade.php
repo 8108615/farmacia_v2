@@ -97,14 +97,25 @@
                         </flux:sidebar.item>
                     @endcan
 
+                    {{-- ========================================
+                        MÓDULO PRODUCTOS
+                    ======================================== --}}
                     @can('productos.ver')
-                        <flux:sidebar.item icon="archive-box" disabled>
+                        <flux:sidebar.item
+                            icon="archive-box"
+                            :href="route('admin.productos.index')"
+                            :current="request()->routeIs('admin.productos.*')"
+                            wire:navigate>
                             Productos
                         </flux:sidebar.item>
                     @endcan
 
                     @can('inventario.ver')
-                        <flux:sidebar.item icon="cube" disabled>
+                        <flux:sidebar.item
+                            icon="cube"
+                            :href="route('admin.inventario.index')"
+                            :current="request()->routeIs('admin.inventario.*')"
+                            wire:navigate>
                             Inventario
                         </flux:sidebar.item>
                     @endcan

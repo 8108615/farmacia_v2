@@ -31,12 +31,14 @@ class PermisosSeeder extends Seeder
             'categorias.crear',
             'categorias.editar',
             'categorias.eliminar',
+            'categorias.restaurar',
 
             // Productos
             'productos.ver',
             'productos.crear',
             'productos.editar',
             'productos.eliminar',
+            'productos.restaurar',
 
             // Inventario
             'inventario.ver',
