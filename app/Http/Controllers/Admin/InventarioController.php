@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InventarioController extends Controller
 {
@@ -524,8 +525,10 @@ class InventarioController extends Controller
 
             $loteVencido = $fechaVencimiento->lt($hoy);
 
-            // No permitir salidas normales
-            // de medicamentos vencidos.
+            // ====================================
+            // BLOQUEAR SALIDAS NORMALES
+            // DE MEDICAMENTOS VENCIDOS
+            // ====================================
 
             if ($tipo === 'Salida' && $loteVencido) {
 
@@ -535,6 +538,30 @@ class InventarioController extends Controller
                         $lote->numero_lote .
                         ' porque el medicamento está vencido. ' .
                         'Utilice Ajuste Salida con la autorización correspondiente.',
+                ]);
+            }
+
+            // ====================================
+            // BLOQUEAR INGRESOS A LOTES VENCIDOS
+            // ====================================
+
+            // No permitir nuevas entradas ni ajustes
+            // de entrada cuando el lote ya venció.
+
+            if (
+                $loteVencido &&
+                in_array(
+                    $tipo,
+                    ['Entrada', 'Ajuste Entrada'],
+                    true
+                )
+            ) {
+
+                throw ValidationException::withMessages([
+                    'tipo' =>
+                        'No se pueden ingresar existencias al lote ' .
+                        $lote->numero_lote .
+                        ' porque el medicamento está vencido.',
                 ]);
             }
 
@@ -606,7 +633,6 @@ class InventarioController extends Controller
                 'referencia' => $datos['referencia'] ?? null,
                 'observacion' => $datos['observacion'] ?? null,
             ]);
-
         });
 
         // ========================================
@@ -624,26 +650,143 @@ class InventarioController extends Controller
     /**
      * Mostrar el historial de movimientos de un lote.
      */
-    public function historial(Lote $lote)
+    public function historial(Request $request, Lote $lote)
     {
         // ========================================
-        // VALIDAR DISPONIBILIDAD DEL LOTE
+        // VALIDACIÓN DE FILTROS
         // ========================================
 
-        // La consulta excluye lotes eliminados
-        // lógicamente mediante SoftDeletes.
+        $filtros = $request->validate([
+            'tipo' => [
+                'nullable',
+                Rule::in([
+                    'Entrada',
+                    'Salida',
+                    'Ajuste Entrada',
+                    'Ajuste Salida',
+                ]),
+            ],
+
+            'fecha_desde' => [
+                'nullable',
+                'date_format:Y-m-d',
+            ],
+
+            'fecha_hasta' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:fecha_desde',
+            ],
+        ], [
+            'tipo.in' =>
+                'El tipo de movimiento seleccionado no es válido.',
+
+            'fecha_desde.date_format' =>
+                'La fecha inicial no es válida.',
+
+            'fecha_hasta.date_format' =>
+                'La fecha final no es válida.',
+
+            'fecha_hasta.after_or_equal' =>
+                'La fecha final no puede ser anterior a la fecha inicial.',
+        ]);
+
+        // ========================================
+        // INFORMACIÓN DEL LOTE
+        // ========================================
+
         $lote->load('producto.categoria');
 
         // ========================================
-        // CONSULTAR MOVIMIENTOS
+        // CONSULTA BASE DE MOVIMIENTOS
         // ========================================
 
-        $movimientos = MovimientoInventario::query()
+        $consulta = MovimientoInventario::query()
             ->with('usuario')
-            ->where('lote_id', $lote->id)
+            ->where('lote_id', $lote->id);
+
+        // ========================================
+        // FILTRAR POR TIPO DE MOVIMIENTO
+        // ========================================
+
+        if (!empty($filtros['tipo'])) {
+
+            $consulta->where(
+                'tipo',
+                $filtros['tipo']
+            );
+        }
+
+        // ========================================
+        // FILTRAR POR FECHA INICIAL
+        // ========================================
+
+        if (!empty($filtros['fecha_desde'])) {
+
+            $consulta->where(
+                'created_at',
+                '>=',
+                $filtros['fecha_desde'] . ' 00:00:00'
+            );
+        }
+
+        // ========================================
+        // FILTRAR POR FECHA FINAL
+        // ========================================
+
+        if (!empty($filtros['fecha_hasta'])) {
+
+            $consulta->where(
+                'created_at',
+                '<',
+                \Illuminate\Support\Carbon::parse(
+                    $filtros['fecha_hasta']
+                )->addDay()->toDateString() . ' 00:00:00'
+            );
+        }
+
+        // ========================================
+        // ORDENAR Y PAGINAR RESULTADOS
+        // ========================================
+
+        $movimientos = $consulta
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
+
+        // ========================================
+        // ESTADÍSTICAS DEL HISTORIAL DEL LOTE
+        // ========================================
+
+        $estadisticas = MovimientoInventario::query()
+            ->where('lote_id', $lote->id)
+            ->selectRaw("
+                tipo,
+                COUNT(*) as total_movimientos,
+                COALESCE(SUM(cantidad), 0) as total_unidades
+            ")
+            ->groupBy('tipo')
+            ->get()
+            ->keyBy('tipo');
+
+        $resumen = [
+            'entradas' => (int) (
+                $estadisticas->get('Entrada')?->total_unidades ?? 0
+            ),
+
+            'salidas' => (int) (
+                $estadisticas->get('Salida')?->total_unidades ?? 0
+            ),
+
+            'ajustes_entrada' => (int) (
+                $estadisticas->get('Ajuste Entrada')?->total_unidades ?? 0
+            ),
+
+            'ajustes_salida' => (int) (
+                $estadisticas->get('Ajuste Salida')?->total_unidades ?? 0
+            ),
+        ];
 
         // ========================================
         // MOSTRAR VISTA
@@ -651,7 +794,150 @@ class InventarioController extends Controller
 
         return view('admin.inventario.historial', compact(
             'lote',
-            'movimientos'
+            'movimientos',
+            'resumen'
         ));
+    }
+
+    /**
+     * Exportar el historial de movimientos de un lote a PDF.
+     */
+    public function exportarPdf(Request $request, Lote $lote)
+    {
+        // ========================================
+        // VALIDAR FILTROS
+        // ========================================
+
+        $filtros = $request->validate([
+            'tipo' => [
+                'nullable',
+                Rule::in([
+                    'Entrada',
+                    'Salida',
+                    'Ajuste Entrada',
+                    'Ajuste Salida',
+                ]),
+            ],
+
+            'fecha_desde' => [
+                'nullable',
+                'date_format:Y-m-d',
+            ],
+
+            'fecha_hasta' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:fecha_desde',
+            ],
+        ]);
+
+        // ========================================
+        // INFORMACIÓN DEL LOTE
+        // ========================================
+
+        $lote->load('producto.categoria');
+
+        // ========================================
+        // CONSULTAR MOVIMIENTOS
+        // ========================================
+
+        $consulta = MovimientoInventario::query()
+            ->with('usuario')
+            ->where('lote_id', $lote->id);
+
+        // Filtrar por tipo de movimiento.
+        if (!empty($filtros['tipo'])) {
+            $consulta->where('tipo', $filtros['tipo']);
+        }
+
+        // Filtrar por fecha inicial.
+        if (!empty($filtros['fecha_desde'])) {
+            $consulta->where(
+                'created_at',
+                '>=',
+                $filtros['fecha_desde'] . ' 00:00:00'
+            );
+        }
+
+        // Filtrar por fecha final.
+        if (!empty($filtros['fecha_hasta'])) {
+            $fechaFinal = \Illuminate\Support\Carbon::parse(
+                $filtros['fecha_hasta']
+            )->addDay()->toDateString();
+
+            $consulta->where(
+                'created_at',
+                '<',
+                $fechaFinal . ' 00:00:00'
+            );
+        }
+
+        // ========================================
+        // OBTENER TODOS LOS RESULTADOS
+        // ========================================
+
+        // No se utiliza paginate(), porque el PDF
+        // debe incluir todos los registros filtrados.
+
+        $movimientos = $consulta
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        // ========================================
+        // CALCULAR RESUMEN DE LOS RESULTADOS
+        // ========================================
+
+        $resumen = [
+            'entradas' => (int) $movimientos
+                ->where('tipo', 'Entrada')
+                ->sum('cantidad'),
+
+            'salidas' => (int) $movimientos
+                ->where('tipo', 'Salida')
+                ->sum('cantidad'),
+
+            'ajustes_entrada' => (int) $movimientos
+                ->where('tipo', 'Ajuste Entrada')
+                ->sum('cantidad'),
+
+            'ajustes_salida' => (int) $movimientos
+                ->where('tipo', 'Ajuste Salida')
+                ->sum('cantidad'),
+        ];
+
+        // ========================================
+        // GENERAR DOCUMENTO PDF
+        // ========================================
+
+        $pdf = Pdf::loadView(
+            'admin.inventario.pdf.historial',
+            compact(
+                'lote',
+                'movimientos',
+                'resumen',
+                'filtros'
+            )
+        )->setPaper('a4', 'landscape');
+
+        // ========================================
+        // NOMBRE DEL ARCHIVO
+        // ========================================
+
+        $nombreLote = preg_replace(
+            '/[^A-Za-z0-9_-]/',
+            '_',
+            $lote->numero_lote
+        );
+
+        $nombreArchivo = 'Historial_Inventario_' .
+            $nombreLote . '_' .
+            now()->format('Ymd_His') . '.pdf';
+
+        // ========================================
+        // DESCARGAR PDF
+        // ========================================
+
+        return $pdf->download($nombreArchivo);
     }
 }

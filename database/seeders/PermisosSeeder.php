@@ -63,6 +63,7 @@ class PermisosSeeder extends Seeder
             'proveedores.crear',
             'proveedores.editar',
             'proveedores.eliminar',
+            'proveedores.restaurar',
 
             // ========================================
             // COMPRAS

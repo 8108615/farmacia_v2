@@ -576,11 +576,13 @@
                             Este lote se encuentra vencido.
 
                             No está permitido registrar movimientos de tipo
-                            <strong>Salida</strong>.
+                            <strong>Entrada</strong>,
+                            <strong>Salida</strong> ni
+                            <strong>Ajuste Entrada</strong>.
 
                             Para retirar existencias vencidas del inventario,
-                            utilice <strong>Ajuste Salida</strong>, siguiendo
-                            el procedimiento autorizado.
+                            utilice <strong>Ajuste Salida</strong>, siempre que
+                            cuente con la autorización correspondiente.
                         </p>
                     </div>
 
@@ -605,7 +607,11 @@
                             <option value="">Seleccione una opción</option>
 
                             @can('inventario.gestionar')
-                                <option value="Entrada" @selected(old('tipo') === 'Entrada')>
+                                <option
+                                    id="opcionEntrada"
+                                    value="Entrada"
+                                    @selected(old('tipo') === 'Entrada')
+                                >
                                     Entrada
                                 </option>
 
@@ -619,11 +625,19 @@
                             @endcan
 
                             @can('inventario.ajustar')
-                                <option value="Ajuste Entrada" @selected(old('tipo') === 'Ajuste Entrada')>
+                                <option
+                                    id="opcionAjusteEntrada"
+                                    value="Ajuste Entrada"
+                                    @selected(old('tipo') === 'Ajuste Entrada')
+                                >
                                     Ajuste Entrada
                                 </option>
 
-                                <option value="Ajuste Salida" @selected(old('tipo') === 'Ajuste Salida')>
+                                <option
+                                    id="opcionAjusteSalida"
+                                    value="Ajuste Salida"
+                                    @selected(old('tipo') === 'Ajuste Salida')
+                                >
                                     Ajuste Salida
                                 </option>
                             @endcan
@@ -888,9 +902,11 @@
 
                     const estaVencido = boton?.dataset.vencido === '1';
 
-                    // Mostrar u ocultar advertencia.
-                    if (advertenciaVencido) {
+                    // ========================================
+                    // MOSTRAR ADVERTENCIA
+                    // ========================================
 
+                    if (advertenciaVencido) {
                         advertenciaVencido.classList.toggle(
                             'hidden',
                             !estaVencido
@@ -898,29 +914,55 @@
                     }
 
                     // ========================================
-                    // BLOQUEAR SALIDA EN LOTES VENCIDOS
+                    // OPCIONES DEL TIPO DE MOVIMIENTO
                     // ========================================
 
-                    const opcionSalida = document.getElementById(
-                        'opcionSalida'
-                    );
+                    const opcionEntrada =
+                        document.getElementById('opcionEntrada');
 
-                    if (opcionSalida) {
+                    const opcionSalida =
+                        document.getElementById('opcionSalida');
 
-                        opcionSalida.disabled = estaVencido;
+                    const opcionAjusteEntrada =
+                        document.getElementById('opcionAjusteEntrada');
 
-                        // Evitar mantener seleccionada
-                        // una salida de un lote vencido.
+                    // ========================================
+                    // BLOQUEAR MOVIMIENTOS EN LOTES VENCIDOS
+                    // ========================================
 
-                        if (
-                            estaVencido &&
-                            tipo.value === 'Salida'
-                        ) {
-                            tipo.value = '';
-                        }
+                    if (opcionEntrada) {
+                        opcionEntrada.disabled = estaVencido;
                     }
 
-                    // Sincronizar el campo Observaciones.
+                    if (opcionSalida) {
+                        opcionSalida.disabled = estaVencido;
+                    }
+
+                    if (opcionAjusteEntrada) {
+                        opcionAjusteEntrada.disabled = estaVencido;
+                    }
+
+                    // ========================================
+                    // LIMPIAR OPCIÓN NO PERMITIDA
+                    // ========================================
+
+                    const movimientosBloqueados = [
+                        'Entrada',
+                        'Salida',
+                        'Ajuste Entrada'
+                    ];
+
+                    if (
+                        estaVencido &&
+                        movimientosBloqueados.includes(tipo.value)
+                    ) {
+                        tipo.value = '';
+                    }
+
+                    // ========================================
+                    // ACTUALIZAR OBSERVACIONES
+                    // ========================================
+
                     actualizarObservaciones();
                 }
 

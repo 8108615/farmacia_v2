@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\CategoriaController;
 use App\Http\Controllers\Admin\ProductoController;
 use App\Http\Controllers\Admin\InventarioController;
+use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\CompraController;
 
 // ============================================
 // PÁGINA PRINCIPAL
@@ -274,9 +276,109 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     // HISTORIAL DE MOVIMIENTOS POR LOTE
                     // ========================================
 
+                    // Consultar historial de movimientos.
                     Route::get('/{lote}/historial', 'historial')
                         ->middleware('permission:inventario.ver')
                         ->name('historial');
+
+                    // ========================================
+                    // EXPORTAR HISTORIAL A PDF
+                    // ========================================
+
+                    // Descargar el historial de un lote en PDF.
+                    // Conserva los filtros de tipo y fechas.
+                    Route::get('/{lote}/historial/pdf', 'exportarPdf')
+                        ->middleware('permission:inventario.ver')
+                        ->name('historial.pdf');
+
+                });
+
+            // ========================================
+            // GESTIÓN DE PROVEEDORES
+            // ========================================
+
+            Route::prefix('proveedores')
+                ->name('proveedores.')
+                ->controller(ProveedorController::class)
+                ->group(function () {
+
+                    Route::get('/', 'index')
+                        ->middleware('permission:proveedores.ver')
+                        ->name('index');
+
+                    Route::get('/crear', 'create')
+                        ->middleware('permission:proveedores.crear')
+                        ->name('create');
+
+                    Route::post('/', 'store')
+                        ->middleware('permission:proveedores.crear')
+                        ->name('store');
+
+                    Route::get('/{proveedor}/editar', 'edit')
+                        ->middleware('permission:proveedores.editar')
+                        ->name('edit');
+
+                    Route::put('/{proveedor}', 'update')
+                        ->middleware('permission:proveedores.editar')
+                        ->name('update');
+
+                    Route::patch('/{proveedor}/restaurar', 'restaurar')
+                        ->middleware('permission:proveedores.restaurar')
+                        ->name('restaurar');
+
+                    Route::delete('/{proveedor}', 'destroy')
+                        ->middleware('permission:proveedores.eliminar')
+                        ->name('destroy');
+
+                    Route::get('/{proveedor}', 'show')
+                        ->middleware('permission:proveedores.ver')
+                        ->name('show');
+                });
+
+            // ========================================
+            // GESTIÓN DE COMPRAS
+            // ========================================
+
+            Route::prefix('compras')
+                ->name('compras.')
+                ->controller(CompraController::class)
+                ->group(function () {
+
+                    // ====================================
+                    // LISTADO DE COMPRAS
+                    // ====================================
+
+                    Route::get('/', 'index')
+                        ->middleware('permission:compras.ver')
+                        ->name('index');
+
+                    // ====================================
+                    // REGISTRAR COMPRA
+                    // ====================================
+
+                    Route::get('/crear', 'create')
+                        ->middleware('permission:compras.crear')
+                        ->name('create');
+
+                    Route::post('/', 'store')
+                        ->middleware('permission:compras.crear')
+                        ->name('store');
+
+                    // ====================================
+                    // EDITAR COMPRA
+                    // ====================================
+
+                    Route::get('/{compra}/editar', 'edit')
+                        ->middleware('permission:compras.editar')
+                        ->name('edit');
+
+                    // ====================================
+                    // VER DETALLES DE COMPRA
+                    // ====================================
+
+                    Route::get('/{compra}', 'show')
+                        ->middleware('permission:compras.ver')
+                        ->name('show');
 
                 });
 
