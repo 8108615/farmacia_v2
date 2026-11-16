@@ -265,13 +265,15 @@ class InventarioController extends Controller
             'fecha_vencimiento' => [
                 'required',
                 'date',
-                'after:fecha_fabricacion',
+                'after_or_equal:fecha_fabricacion',
+                'after_or_equal:today',
             ],
 
             'stock_actual' => [
                 'required',
                 'integer',
                 'min:0',
+                'max:4294967295',
             ],
 
             'estado' => [
@@ -283,7 +285,9 @@ class InventarioController extends Controller
             'producto_id.exists' => 'El producto seleccionado no está disponible.',
             'numero_lote.required' => 'Ingrese el número de lote.',
             'fecha_vencimiento.required' => 'Ingrese la fecha de vencimiento.',
-            'fecha_vencimiento.after' => 'La fecha de vencimiento debe ser posterior a la fecha de fabricación.',
+            'fecha_vencimiento.after_or_equal' =>
+                    'La fecha de vencimiento debe ser igual o posterior a la fecha de fabricación y no puede estar vencida.',
+                    
             'stock_actual.required' => 'Ingrese el stock inicial.',
             'stock_actual.min' => 'El stock no puede ser negativo.',
         ]);

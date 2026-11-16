@@ -365,12 +365,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
                         ->name('store');
 
                     // ====================================
-                    // EDITAR COMPRA
+                    // EDITAR COMPRA Y ACTUALIZAR COMPRA
                     // ====================================
 
                     Route::get('/{compra}/editar', 'edit')
                         ->middleware('permission:compras.editar')
                         ->name('edit');
+
+                    // Guardar cambios de la compra
+                    Route::put('/{compra}', 'update')
+                        ->middleware('permission:compras.editar')
+                        ->name('update');
 
                     // ====================================
                     // VER DETALLES DE COMPRA
@@ -380,6 +385,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                         ->middleware('permission:compras.ver')
                         ->name('show');
 
+                    Route::post('/{compra}/confirmar', [CompraController::class, 'confirmar'])
+                        ->middleware('permission:compras.editar')
+                        ->name('confirmar');
                 });
 
         });
