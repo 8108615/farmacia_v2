@@ -268,6 +268,570 @@
             </div>
         @endif
 
+        {{-- ======================================== --}}
+        {{-- HISTORIAL DE AUDITORÍA DE LA COMPRA --}}
+        {{-- ======================================== --}}
+
+        <div class="overflow-hidden rounded-xl bg-zinc-950 shadow-sm">
+
+            <div class="border-b border-zinc-800 p-5">
+                <h2 class="text-lg font-semibold text-white">
+                    Historial de Auditoría
+                </h2>
+
+                <p class="mt-1 text-sm text-zinc-400">
+                    Registro de las operaciones realizadas
+                    sobre esta compra.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[800px] text-left text-sm">
+
+                    <thead class="bg-zinc-900 text-xs uppercase text-zinc-400">
+                        <tr>
+                            <th class="px-5 py-4">Fecha y hora</th>
+                            <th class="px-5 py-4">Acción</th>
+                            <th class="px-5 py-4">Usuario</th>
+                            <th class="px-5 py-4">Descripción</th>
+                            <th class="px-5 py-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-zinc-800">
+
+                        @forelse ($compra->auditorias as $auditoria)
+
+                            @php
+                                $colorAccion = match ($auditoria->accion) {
+                                    'CREACION' => 'bg-blue-950 text-blue-400',
+                                    'EDICION' => 'bg-amber-950 text-amber-400',
+                                    'CONFIRMACION' => 'bg-emerald-950 text-emerald-400',
+                                    'ANULACION' => 'bg-red-950 text-red-400',
+                                    default => 'bg-zinc-800 text-zinc-300',
+                                };
+
+                                $nombreAccion = match ($auditoria->accion) {
+                                    'CREACION' => 'Creación',
+                                    'EDICION' => 'Edición',
+                                    'CONFIRMACION' => 'Confirmación',
+                                    'ANULACION' => 'Anulación',
+                                    default => $auditoria->accion,
+                                };
+                            @endphp
+
+                            <tr class="text-zinc-200 hover:bg-zinc-900/60">
+
+                                <td class="whitespace-nowrap px-5 py-4">
+                                    {{ $auditoria->created_at?->format('d/m/Y H:i:s') ?? '—' }}
+                                </td>
+
+                                <td class="px-5 py-4">
+                                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $colorAccion }}">
+                                        {{ $nombreAccion }}
+                                    </span>
+                                </td>
+
+                                <td class="px-5 py-4 font-medium text-white">
+                                    {{ $auditoria->usuario?->name ?? 'Usuario no disponible' }}
+                                </td>
+
+                                <td class="px-5 py-4 text-zinc-300">
+                                    {{ $auditoria->descripcion ?: 'Sin descripción' }}
+                                </td>
+
+                                <td class="px-5 py-4 text-center">
+
+                                    @if (
+                                        $auditoria->accion === 'EDICION' &&
+                                        is_array($auditoria->datos_anteriores) &&
+                                        is_array($auditoria->datos_nuevos)
+                                    )
+
+                                        <button
+                                            type="button"
+                                            class="btn-ver-cambios rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                                            data-anteriores="{{ json_encode($auditoria->datos_anteriores) }}"
+                                            data-nuevos="{{ json_encode($auditoria->datos_nuevos) }}"
+                                        >
+                                            Ver cambios
+                                        </button>
+
+                                    @else
+                                        <span class="text-xs text-zinc-500">—</span>
+                                    @endif
+
+                                </td>
+
+                            </tr>
+
+                        @empty
+
+                            <tr>
+                                <td colspan="5"
+                                    class="px-5 py-10 text-center text-zinc-400">
+                                    No existen registros de auditoría para esta compra.
+                                </td>
+                            </tr>
+
+                        @endforelse
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+
     </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // ========================================
+        // CATÁLOGO DE PRODUCTOS
+        // ========================================
+
+        const nombresProductos = {{ \Illuminate\Support\Js::from($nombresProductos) }};
+
+        // ========================================
+        // FUNCIONES AUXILIARES
+        // ========================================
+
+        const escapar = (valor) => String(valor)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+
+        const mostrar = (valor) => {
+            if (valor === null || valor === undefined || valor === '') {
+                return '—';
+            }
+
+            return escapar(valor);
+        };
+
+        const moneda = (valor) => {
+            if (valor === null || valor === undefined || valor === '') {
+                return '—';
+            }
+
+            const numero = Number(valor);
+
+            if (!Number.isFinite(numero)) {
+                return mostrar(valor);
+            }
+
+            return 'Bs ' + numero.toLocaleString('es-BO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        };
+
+        // ========================================
+        // IDENTIFICAR PRODUCTOS POR NOMBRE
+        // ========================================
+
+        const nombreProducto = (productoId) => {
+            if (productoId === null || productoId === undefined) {
+                return 'Producto desconocido';
+            }
+
+            return nombresProductos[productoId]
+                ?? `Producto ID: ${productoId}`;
+        };
+
+        const identificarDetalle = (detalle) => {
+            const nombre = nombreProducto(detalle.producto_id);
+            const lote = detalle.numero_lote || 'Sin lote';
+
+            return `${nombre} | Lote: ${lote}`;
+        };
+
+        // ========================================
+        // CAMPOS A COMPARAR
+        // ========================================
+
+        const camposCompra = {
+            proveedor_id: 'Proveedor (ID)',
+            fecha_compra: 'Fecha de compra',
+            numero_factura: 'Número de factura',
+            subtotal: 'Subtotal',
+            descuento: 'Descuento',
+            total: 'Total',
+            observaciones: 'Observaciones'
+        };
+
+        const camposDetalle = {
+            producto_id: 'Producto',
+            numero_lote: 'Número de lote',
+            fecha_fabricacion: 'Fecha de fabricación',
+            fecha_vencimiento: 'Fecha de vencimiento',
+            cantidad: 'Cantidad',
+            precio_compra: 'Precio de compra',
+            subtotal: 'Subtotal del producto'
+        };
+
+        const camposMonetarios = [
+            'subtotal',
+            'descuento',
+            'total',
+            'precio_compra'
+        ];
+
+        const formatear = (campo, valor) => {
+
+            if (campo === 'producto_id') {
+                if (valor === null || valor === undefined || valor === '') {
+                    return '—';
+                }
+
+                return mostrar(nombreProducto(valor));
+            }
+
+            return camposMonetarios.includes(campo)
+                ? moneda(valor)
+                : mostrar(valor);
+        };
+
+        const sonIguales = (a, b) => {
+            if (a === null || a === undefined || a === '') {
+                a = '';
+            }
+
+            if (b === null || b === undefined || b === '') {
+                b = '';
+            }
+
+            return String(a) === String(b);
+        };
+
+        // ========================================
+        // CREAR FILAS Y ENCABEZADOS
+        // ========================================
+
+        const crearFila = (etiqueta, antes, despues) => `
+            <tr class="border-b border-zinc-700">
+                <td class="p-3 text-zinc-300">
+                    ${escapar(etiqueta)}
+                </td>
+
+                <td class="p-3 text-red-400 break-words">
+                    ${antes}
+                </td>
+
+                <td class="p-3 text-emerald-400 break-words">
+                    ${despues}
+                </td>
+            </tr>
+        `;
+
+        const crearTitulo = (titulo) => `
+            <tr class="bg-zinc-800">
+                <td colspan="3" class="p-3 font-bold text-blue-400">
+                    ${escapar(titulo)}
+                </td>
+            </tr>
+        `;
+
+        // ========================================
+        // AGRUPAR DETALLES POR PRODUCTO Y LOTE
+        // ========================================
+
+        const claveDetalle = (detalle) => JSON.stringify([
+            String(detalle.producto_id ?? ''),
+            String(detalle.numero_lote ?? '').trim().toUpperCase()
+        ]);
+
+        const agruparDetalles = (detalles) => {
+            const grupos = new Map();
+
+            detalles.forEach((detalle) => {
+
+                const clave = claveDetalle(detalle);
+
+                if (!grupos.has(clave)) {
+                    grupos.set(clave, []);
+                }
+
+                grupos.get(clave).push(detalle);
+            });
+
+            return grupos;
+        };
+
+        // ========================================
+        // EVENTO VER CAMBIOS
+        // ========================================
+
+        document.querySelectorAll('.btn-ver-cambios').forEach(function (boton) {
+
+            boton.addEventListener('click', function () {
+
+                let anteriores;
+                let nuevos;
+
+                // ========================================
+                // LEER DATOS DE AUDITORÍA
+                // ========================================
+
+                try {
+                    anteriores = JSON.parse(this.dataset.anteriores);
+                    nuevos = JSON.parse(this.dataset.nuevos);
+
+                    if (
+                        !anteriores ||
+                        !nuevos ||
+                        typeof anteriores !== 'object' ||
+                        typeof nuevos !== 'object' ||
+                        Array.isArray(anteriores) ||
+                        Array.isArray(nuevos)
+                    ) {
+                        throw new Error('Formato de auditoría inválido');
+                    }
+
+                } catch (error) {
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de auditoría',
+                        text: 'No se pudieron leer los datos registrados.',
+                        background: '#18181b',
+                        color: '#ffffff',
+                        confirmButtonColor: '#2563eb'
+                    });
+
+                    return;
+                }
+
+                let filas = '';
+                let cantidadCambios = 0;
+
+                // ========================================
+                // 1. COMPARAR INFORMACIÓN GENERAL
+                // ========================================
+
+                const compraAnterior = anteriores.compra ?? {};
+                const compraNueva = nuevos.compra ?? {};
+
+                let filasGenerales = '';
+
+                Object.entries(camposCompra).forEach(([campo, etiqueta]) => {
+
+                    const antes = compraAnterior[campo];
+                    const despues = compraNueva[campo];
+
+                    if (!sonIguales(antes, despues)) {
+
+                        filasGenerales += crearFila(
+                            etiqueta,
+                            formatear(campo, antes),
+                            formatear(campo, despues)
+                        );
+
+                        cantidadCambios++;
+                    }
+                });
+
+                if (filasGenerales) {
+                    filas += crearTitulo('Información general de la compra');
+                    filas += filasGenerales;
+                }
+
+                // ========================================
+                // 2. COMPARAR PRODUCTOS Y LOTES
+                // ========================================
+
+                const detallesAnteriores = Array.isArray(anteriores.detalles)
+                    ? anteriores.detalles
+                    : [];
+
+                const detallesNuevos = Array.isArray(nuevos.detalles)
+                    ? nuevos.detalles
+                    : [];
+
+                const gruposAnteriores = agruparDetalles(detallesAnteriores);
+                const gruposNuevos = agruparDetalles(detallesNuevos);
+
+                const claves = new Set([
+                    ...gruposAnteriores.keys(),
+                    ...gruposNuevos.keys()
+                ]);
+
+                let filasProductos = '';
+
+                claves.forEach((clave) => {
+
+                    const anterioresGrupo = gruposAnteriores.get(clave) ?? [];
+                    const nuevosGrupo = gruposNuevos.get(clave) ?? [];
+
+                    const cantidad = Math.max(
+                        anterioresGrupo.length,
+                        nuevosGrupo.length
+                    );
+
+                    for (let indice = 0; indice < cantidad; indice++) {
+
+                        const anterior = anterioresGrupo[indice] ?? null;
+                        const nuevo = nuevosGrupo[indice] ?? null;
+
+                        const referencia = nuevo ?? anterior;
+                        const identificador = identificarDetalle(referencia);
+
+                        // ========================================
+                        // PRODUCTO O LOTE AGREGADO
+                        // ========================================
+
+                        if (!anterior) {
+
+                            filasProductos += crearTitulo(
+                                `Producto o lote agregado: ${identificador}`
+                            );
+
+                            Object.entries(camposDetalle).forEach(([campo, etiqueta]) => {
+
+                                filasProductos += crearFila(
+                                    etiqueta,
+                                    '—',
+                                    formatear(campo, nuevo[campo])
+                                );
+                            });
+
+                            cantidadCambios++;
+                            continue;
+                        }
+
+                        // ========================================
+                        // PRODUCTO O LOTE RETIRADO
+                        // ========================================
+
+                        if (!nuevo) {
+
+                            filasProductos += crearTitulo(
+                                `Producto o lote retirado: ${identificador}`
+                            );
+
+                            Object.entries(camposDetalle).forEach(([campo, etiqueta]) => {
+
+                                filasProductos += crearFila(
+                                    etiqueta,
+                                    formatear(campo, anterior[campo]),
+                                    '—'
+                                );
+                            });
+
+                            cantidadCambios++;
+                            continue;
+                        }
+
+                        // ========================================
+                        // PRODUCTO EXISTENTE MODIFICADO
+                        // ========================================
+
+                        let diferencias = '';
+
+                        Object.entries(camposDetalle).forEach(([campo, etiqueta]) => {
+
+                            const antes = anterior[campo];
+                            const despues = nuevo[campo];
+
+                            if (!sonIguales(antes, despues)) {
+
+                                diferencias += crearFila(
+                                    etiqueta,
+                                    formatear(campo, antes),
+                                    formatear(campo, despues)
+                                );
+
+                                cantidadCambios++;
+                            }
+                        });
+
+                        if (diferencias) {
+
+                            filasProductos += crearTitulo(identificador);
+                            filasProductos += diferencias;
+                        }
+                    }
+                });
+
+                if (filasProductos) {
+                    filas += crearTitulo('Cambios en productos y lotes');
+                    filas += filasProductos;
+                }
+
+                // ========================================
+                // 3. MENSAJE SIN DIFERENCIAS
+                // ========================================
+
+                if (!filas) {
+
+                    filas = `
+                        <tr>
+                            <td colspan="3"
+                                class="p-5 text-center text-zinc-400">
+                                No se encontraron diferencias en los campos comparados.
+                            </td>
+                        </tr>
+                    `;
+                }
+
+                // ========================================
+                // 4. MOSTRAR HISTORIAL CON SWEETALERT2
+                // ========================================
+
+                Swal.fire({
+
+                    title: 'Historial de modificaciones',
+
+                    width: 950,
+
+                    background: '#18181b',
+
+                    color: '#ffffff',
+
+                    confirmButtonText: 'Cerrar',
+
+                    confirmButtonColor: '#2563eb',
+
+                    html: `
+                        <div class="mb-4 text-left text-sm text-zinc-400">
+                            Diferencias detectadas:
+                            <strong class="text-blue-400">
+                                ${cantidadCambios}
+                            </strong>
+                        </div>
+
+                        <div class="max-h-[60vh] overflow-auto rounded-lg border border-zinc-700 text-left">
+
+                            <table class="w-full min-w-[650px] text-sm">
+
+                                <thead class="sticky top-0 bg-zinc-800 text-white">
+                                    <tr>
+                                        <th class="p-3 text-left">Campo</th>
+                                        <th class="p-3 text-left">Antes</th>
+                                        <th class="p-3 text-left">Después</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    ${filas}
+                                </tbody>
+
+                            </table>
+
+                        </div>
+                    `
+                });
+
+            });
+
+        });
+
+    });
+    </script>
+
 
 </x-layouts::app>

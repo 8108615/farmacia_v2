@@ -73,4 +73,13 @@ class Compra extends Model
     {
         return $this->hasMany(CompraDetalle::class);
     }
+
+    // ========================================
+    // RELACIÓN CON AUDITORÍA DE COMPRAS
+    // ========================================
+
+    public function auditorias(): HasMany
+    {
+        return $this->hasMany(CompraAuditoria::class, 'compra_id');
+    }
 }

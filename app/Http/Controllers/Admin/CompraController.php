@@ -249,6 +249,33 @@ class CompraController extends Controller
             $compra->detalles()->createMany(
                 $detallesCalculados
             );
+
+            // ========================================
+            // REGISTRAR AUDITORÍA DE CREACIÓN
+            // ========================================
+
+            // Cargar los detalles que fueron guardados.
+            $compra->load('detalles');
+
+            // Registrar quién creó la compra y
+            // qué información quedó almacenada.
+            $compra->auditorias()->create([
+                'usuario_id' => auth()->id(),
+
+                'accion' => 'CREACION',
+
+                'datos_anteriores' => null,
+
+                'datos_nuevos' => [
+                    'compra' => $compra->toArray(),
+                    'detalles' => $compra->detalles->toArray(),
+                ],
+
+                'descripcion' =>
+                    'Se registró la compra ' .
+                    $compra->codigo .
+                    ' en estado Borrador.',
+            ]);
         });
 
         return redirect()
@@ -262,13 +289,36 @@ class CompraController extends Controller
 
     public function show(Compra $compra)
     {
+        // ========================================
+        // CARGAR INFORMACIÓN DE LA COMPRA
+        // ========================================
+
         $compra->load([
             'proveedor',
             'usuario',
             'detalles.producto',
+            'auditorias.usuario',
         ]);
 
-        return view('admin.compras.show', compact('compra'));
+        // ========================================
+        // CATÁLOGO DE PRODUCTOS PARA AUDITORÍA
+        // ========================================
+
+        // Incluimos productos eliminados lógicamente
+        // para poder identificar registros históricos.
+
+        $nombresProductos = Producto::withTrashed()
+            ->get(['id', 'nombre'])
+            ->mapWithKeys(function ($producto) {
+                return [
+                    $producto->id => $producto->nombre,
+                ];
+            });
+
+        return view('admin.compras.show', compact(
+            'compra',
+            'nombresProductos'
+        ));
     }
 
     // ========================================
@@ -460,7 +510,7 @@ class CompraController extends Controller
         }
 
         // ========================================
-        // ACTUALIZAR COMPRA Y DETALLES
+        // ACTUALIZAR COMPRA Y REGISTRAR AUDITORÍA
         // ========================================
 
         DB::transaction(function () use (
@@ -471,21 +521,36 @@ class CompraController extends Controller
             $descuentoCentavos
         ) {
 
-            // Bloquear la compra durante la actualización.
+            // ========================================
+            // BLOQUEAR COMPRA
+            // ========================================
+
             $compraActual = Compra::query()
                 ->whereKey($compra->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // Volver a comprobar el estado dentro
-            // de la transacción.
             abort_unless(
                 $compraActual->estado === 'Borrador',
                 403,
                 'Esta compra ya no puede modificarse.'
             );
 
-            // Actualizar información general.
+            // ========================================
+            // GUARDAR INFORMACIÓN ANTERIOR
+            // ========================================
+
+            $compraActual->load('detalles');
+
+            $datosAnteriores = [
+                'compra' => $compraActual->attributesToArray(),
+                'detalles' => $compraActual->detalles->toArray(),
+            ];
+
+            // ========================================
+            // ACTUALIZAR INFORMACIÓN GENERAL
+            // ========================================
+
             $compraActual->update([
                 'proveedor_id' => $datos['proveedor_id'],
                 'fecha_compra' => $datos['fecha_compra'],
@@ -509,13 +574,50 @@ class CompraController extends Controller
                     $datos['observaciones'] ?? null,
             ]);
 
-            // Reemplazar los detalles del borrador.
+            // ========================================
+            // ACTUALIZAR DETALLES
+            // ========================================
+
+            // Reemplazar detalles del borrador.
             // No se modifica el inventario.
+
             $compraActual->detalles()->delete();
 
             $compraActual->detalles()->createMany(
                 $detallesCalculados
             );
+
+            // ========================================
+            // OBTENER INFORMACIÓN ACTUALIZADA
+            // ========================================
+
+            $compraActual->refresh();
+            $compraActual->load('detalles');
+
+            $datosNuevos = [
+                'compra' => $compraActual->attributesToArray(),
+                'detalles' => $compraActual->detalles->toArray(),
+            ];
+
+            // ========================================
+            // REGISTRAR AUDITORÍA DE EDICIÓN
+            // ========================================
+
+            $compraActual->auditorias()->create([
+                'usuario_id' => auth()->id(),
+
+                'accion' => 'EDICION',
+
+                'datos_anteriores' => $datosAnteriores,
+
+                'datos_nuevos' => $datosNuevos,
+
+                'descripcion' =>
+                    'Se modificó la compra ' .
+                    $compraActual->codigo .
+                    ' en estado Borrador.',
+            ]);
+
         });
 
         // ========================================
@@ -567,6 +669,16 @@ class CompraController extends Controller
                     'compra' => 'La compra no contiene productos.',
                 ]);
             }
+
+            // ========================================
+            // GUARDAR INFORMACIÓN ANTERIOR
+            // PARA LA AUDITORÍA
+            // ========================================
+
+            $datosAnteriores = [
+                'compra' => $compraActual->toArray(),
+                'detalles' => $detalles->toArray(),
+            ];
 
             // ========================================
             // BLOQUEAR PRODUCTOS EN ORDEN FIJO
@@ -641,6 +753,7 @@ class CompraController extends Controller
                 // No permitir medicamentos vencidos.
                 if (
                     $detalle->fecha_vencimiento
+                        ->copy()
                         ->startOfDay()
                         ->lt(today())
                 ) {
@@ -803,6 +916,36 @@ class CompraController extends Controller
                 'fecha_confirmacion' => now(),
             ]);
 
+            // ========================================
+            // OBTENER INFORMACIÓN ACTUALIZADA
+            // ========================================
+
+            $compraActual->refresh();
+            $compraActual->load('detalles');
+
+            $datosNuevos = [
+                'compra' => $compraActual->toArray(),
+                'detalles' => $compraActual->detalles->toArray(),
+            ];
+
+            // ========================================
+            // REGISTRAR AUDITORÍA DE CONFIRMACIÓN
+            // ========================================
+
+            $compraActual->auditorias()->create([
+                'usuario_id' => auth()->id(),
+
+                'accion' => 'CONFIRMACION',
+
+                'datos_anteriores' => $datosAnteriores,
+
+                'datos_nuevos' => $datosNuevos,
+
+                'descripcion' =>
+                    'Se confirmó la compra ' .
+                    $compraActual->codigo .
+                    ' y se actualizaron las existencias del inventario.',
+            ]);
         }, 3);
 
         // ========================================
@@ -829,16 +972,17 @@ class CompraController extends Controller
 
         DB::transaction(function () use ($compra) {
 
-            // Bloquear la compra para evitar que
-            // se confirme o anule simultáneamente.
+            // ========================================
+            // BLOQUEAR COMPRA
+            // ========================================
 
             $compraActual = Compra::query()
-                ->whereKey($compra->id)
+                ->whereKey($compra->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
 
             // ========================================
-            // VALIDAR ESTADO DE LA COMPRA
+            // VALIDAR ESTADO
             // ========================================
 
             if ($compraActual->estado !== 'Borrador') {
@@ -849,16 +993,62 @@ class CompraController extends Controller
             }
 
             // ========================================
-            // ACTUALIZAR ESTADO
+            // GUARDAR INFORMACIÓN ANTERIOR
+            // ========================================
+
+            $compraActual->load('detalles');
+
+            $datosAnteriores = [
+                'compra' => $compraActual->attributesToArray(),
+                'detalles' => $compraActual->detalles->toArray(),
+            ];
+
+            // ========================================
+            // ANULAR COMPRA
             // ========================================
 
             $compraActual->update([
                 'estado' => 'Anulada',
             ]);
 
-            // No eliminamos la compra ni sus detalles.
-            // No modificamos lotes ni existencias.
-            // No generamos movimientos de inventario.
+            // ========================================
+            // GUARDAR INFORMACIÓN NUEVA
+            // ========================================
+
+            $compraActual->refresh();
+            $compraActual->load('detalles');
+
+            $datosNuevos = [
+                'compra' => $compraActual->attributesToArray(),
+                'detalles' => $compraActual->detalles->toArray(),
+            ];
+
+            // ========================================
+            // REGISTRAR AUDITORÍA
+            // ========================================
+
+            $compraActual->auditorias()->create([
+                'usuario_id' => auth()->id(),
+
+                'accion' => 'ANULACION',
+
+                'datos_anteriores' => $datosAnteriores,
+
+                'datos_nuevos' => $datosNuevos,
+
+                'descripcion' =>
+                    'Se anuló la compra ' .
+                    $compraActual->codigo .
+                    ' que se encontraba en estado Borrador.',
+            ]);
+
+            // ========================================
+            // NO MODIFICAR INVENTARIO
+            // ========================================
+
+            // La compra todavía no fue confirmada.
+            // No se modifican lotes ni existencias.
+            // No se crean movimientos de inventario.
 
         }, 3);
 
