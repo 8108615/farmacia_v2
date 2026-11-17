@@ -60,6 +60,7 @@ class RolesPermisosSeeder extends Seeder
 
             'compras.ver',
             'compras.crear',
+            'compras.editar',
 
             'ventas.ver',
             'ventas.crear',

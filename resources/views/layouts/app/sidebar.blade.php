@@ -110,6 +110,9 @@
                         </flux:sidebar.item>
                     @endcan
 
+                    {{-- ========================================
+                        MÓDULO INVENTARIO
+                    ======================================== --}}
                     @can('inventario.ver')
                         <flux:sidebar.item
                             icon="cube"
@@ -120,8 +123,16 @@
                         </flux:sidebar.item>
                     @endcan
 
+                    {{-- ========================================
+                        MÓDULO PROVEEDORES
+                    ======================================== --}}
                     @can('proveedores.ver')
-                        <flux:sidebar.item icon="truck" disabled>
+                        <flux:sidebar.item
+                            icon="truck"
+                            :href="route('admin.proveedores.index')"
+                            :current="request()->routeIs('admin.proveedores.*')"
+                            wire:navigate
+                        >
                             Proveedores
                         </flux:sidebar.item>
                     @endcan
@@ -135,8 +146,16 @@
 
                 <flux:sidebar.group heading="OPERACIONES" class="grid">
 
+                    {{-- ========================================
+                        MÓDULO COMPRAS
+                    ======================================== --}}
                     @can('compras.ver')
-                        <flux:sidebar.item icon="shopping-cart" disabled>
+                        <flux:sidebar.item
+                            icon="shopping-cart"
+                            :href="route('admin.compras.index')"
+                            :current="request()->routeIs('admin.compras.*')"
+                            wire:navigate
+                        >
                             Compras
                         </flux:sidebar.item>
                     @endcan

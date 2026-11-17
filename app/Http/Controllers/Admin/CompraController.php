@@ -823,8 +823,54 @@ class CompraController extends Controller
 
     public function destroy(Compra $compra)
     {
-        // No habilitamos eliminación hasta definir
-        // las reglas de anulación y auditoría.
-        abort(501, 'La eliminación de compras no está habilitada.');
+        // ========================================
+        // ANULAR COMPRA EN ESTADO BORRADOR
+        // ========================================
+
+        DB::transaction(function () use ($compra) {
+
+            // Bloquear la compra para evitar que
+            // se confirme o anule simultáneamente.
+
+            $compraActual = Compra::query()
+                ->whereKey($compra->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // ========================================
+            // VALIDAR ESTADO DE LA COMPRA
+            // ========================================
+
+            if ($compraActual->estado !== 'Borrador') {
+                throw ValidationException::withMessages([
+                    'compra' =>
+                        'Solamente se pueden anular compras en estado Borrador.',
+                ]);
+            }
+
+            // ========================================
+            // ACTUALIZAR ESTADO
+            // ========================================
+
+            $compraActual->update([
+                'estado' => 'Anulada',
+            ]);
+
+            // No eliminamos la compra ni sus detalles.
+            // No modificamos lotes ni existencias.
+            // No generamos movimientos de inventario.
+
+        }, 3);
+
+        // ========================================
+        // REDIRECCIÓN
+        // ========================================
+
+        return redirect()
+            ->route('admin.compras.index')
+            ->with(
+                'success',
+                '¡Compra anulada correctamente!'
+            );
     }
 }

@@ -70,6 +70,8 @@ class PermisosSeeder extends Seeder
             // ========================================
             'compras.ver',
             'compras.crear',
+            'compras.editar',
+            'compras.anular',
 
             // ========================================
             // VENTAS

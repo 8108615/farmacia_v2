@@ -388,6 +388,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::post('/{compra}/confirmar', [CompraController::class, 'confirmar'])
                         ->middleware('permission:compras.editar')
                         ->name('confirmar');
+
+                    Route::delete('/{compra}', 'destroy')
+                        ->middleware('permission:compras.anular')
+                        ->name('destroy');
                 });
 
         });
