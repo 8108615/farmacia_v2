@@ -31,6 +31,7 @@ return new class extends Migration
             // Información farmacéutica
             $table->string('presentacion', 100)->nullable();
             $table->string('concentracion', 100)->nullable();
+            $table->decimal('precio_venta', 12, 2)->nullable();
             $table->string('registro_sanitario', 100)->nullable();
             $table->boolean('requiere_receta')->default(false);
 

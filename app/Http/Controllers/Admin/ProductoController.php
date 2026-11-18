@@ -291,6 +291,14 @@ class ProductoController extends Controller
                 'string',
                 'max:100',
             ],
+
+            'precio_venta' => [
+                'required',
+                'numeric',
+                'gt:0',
+                'decimal:0,2',
+                'max:9999999999.99',
+            ],
             'registro_sanitario' => [
                 'nullable',
                 'string',
@@ -331,6 +339,21 @@ class ProductoController extends Controller
                 'Debe seleccionar un estado.',
             'estado.in' =>
                 'El estado seleccionado no es válido.',
+
+            'precio_venta.required' =>
+                'Debe ingresar el precio de venta del medicamento.',
+
+            'precio_venta.numeric' =>
+                'El precio de venta debe ser un número válido.',
+
+            'precio_venta.gt' =>
+                'El precio de venta debe ser mayor a cero.',
+
+            'precio_venta.decimal' =>
+                'El precio de venta debe tener como máximo dos decimales.',
+
+            'precio_venta.max' =>
+                'El precio de venta supera el monto máximo permitido.',
         ];
     }
 }

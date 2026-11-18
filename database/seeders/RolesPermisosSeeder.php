@@ -64,6 +64,8 @@ class RolesPermisosSeeder extends Seeder
 
             'ventas.ver',
             'ventas.crear',
+            'ventas.editar',
+            'ventas.anular',
 
             'reportes.ver',
         ]);
@@ -92,6 +94,7 @@ class RolesPermisosSeeder extends Seeder
             'inventario.ver',
             'ventas.ver',
             'ventas.crear',
+            'ventas.editar',
         ]);
 
         // ========================================

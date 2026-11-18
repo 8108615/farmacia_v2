@@ -22,6 +22,7 @@ class Producto extends Model
         'laboratorio',
         'presentacion',
         'concentracion',
+        'precio_venta',
         'registro_sanitario',
         'requiere_receta',
         'descripcion',
@@ -33,6 +34,7 @@ class Producto extends Model
     {
         return [
             'requiere_receta' => 'boolean',
+            'precio_venta' => 'decimal:2',
             'deleted_at' => 'datetime',
         ];
     }

@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ProductoController;
 use App\Http\Controllers\Admin\InventarioController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\CompraController;
+use App\Http\Controllers\Admin\VentaController;
 
 // ============================================
 // PÁGINA PRINCIPAL
@@ -392,6 +393,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::delete('/{compra}', 'destroy')
                         ->middleware('permission:compras.anular')
                         ->name('destroy');
+                });
+
+                // ====================================
+            // MÓDULO DE VENTAS
+            // ====================================
+
+            Route::prefix('ventas')
+                ->name('ventas.')
+                ->controller(VentaController::class)
+                ->group(function () {
+
+                    // ====================================
+                    // LISTADO DE VENTAS
+                    // ====================================
+
+                    Route::get('/', 'index')
+                        ->middleware('permission:ventas.ver')
+                        ->name('index');
+
+                    // ====================================
+                    // FORMULARIO DE NUEVA VENTA
+                    // ====================================
+
+                    Route::get('/crear', 'create')
+                        ->middleware('permission:ventas.crear')
+                        ->name('create');
+
                 });
 
         });

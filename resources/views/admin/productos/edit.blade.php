@@ -188,6 +188,36 @@
                         </div>
                     @endforeach
 
+                    {{-- PRECIO DE VENTA --}}
+                    <div>
+                        <label for="precio_venta"
+                            class="mb-2 block text-sm font-medium text-zinc-200">
+                            Precio de Venta (Bs)
+                            <span class="text-red-400">*</span>
+                        </label>
+
+                        <input type="number"
+                            id="precio_venta"
+                            name="precio_venta"
+                            value="{{ old('precio_venta', $producto->precio_venta) }}"
+                            min="0.01"
+                            max="9999999999.99"
+                            step="0.01"
+                            required
+                            placeholder="Ej. 15.50"
+                            class="{{ $claseInput }}">
+
+                        @error('precio_venta')
+                            <p class="mt-2 text-sm text-red-400">
+                                {{ $message }}
+                            </p>
+                        @enderror
+
+                        <p class="mt-2 text-xs text-zinc-500">
+                            Precio unitario de venta del medicamento en bolivianos.
+                        </p>
+                    </div>
+
                     {{-- REQUIERE RECETA --}}
                     <div>
                         <label for="requiere_receta"

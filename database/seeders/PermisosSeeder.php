@@ -78,6 +78,8 @@ class PermisosSeeder extends Seeder
             // ========================================
             'ventas.ver',
             'ventas.crear',
+            'ventas.editar',
+            'ventas.anular',
 
             // ========================================
             // REPORTES
