@@ -160,14 +160,30 @@
                         </flux:sidebar.item>
                     @endcan
 
+                    {{-- ========================================
+                        MÓDULO VENTAS
+                    ======================================== --}}
                     @can('ventas.ver')
-                        <flux:sidebar.item icon="banknotes" disabled>
+                        <flux:sidebar.item
+                            icon="banknotes"
+                            :href="route('admin.ventas.index')"
+                            :current="request()->routeIs('admin.ventas.*')"
+                            wire:navigate
+                        >
                             Ventas
                         </flux:sidebar.item>
                     @endcan
 
+                    {{-- ========================================
+                        MÓDULO REPORTES
+                    ======================================== --}}
                     @can('reportes.ver')
-                        <flux:sidebar.item icon="chart-bar" disabled>
+                        <flux:sidebar.item
+                            icon="chart-bar"
+                            :href="route('admin.reportes.index')"
+                            :current="request()->routeIs('admin.reportes.*')"
+                            wire:navigate
+                        >
                             Reportes
                         </flux:sidebar.item>
                     @endcan

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\InventarioController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\CompraController;
 use App\Http\Controllers\Admin\VentaController;
+use App\Http\Controllers\Admin\ReporteController;
 
 // ============================================
 // PÁGINA PRINCIPAL
@@ -419,6 +420,54 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('/crear', 'create')
                         ->middleware('permission:ventas.crear')
                         ->name('create');
+
+                    Route::post('/', 'store')
+                        ->middleware('permission:ventas.crear')
+                        ->name('store');
+
+                    Route::get('/{venta}', 'show')
+                        ->middleware('permission:ventas.ver')
+                        ->name('show');
+
+                    // ========================================
+                    // CONFIRMAR VENTA
+                    // ========================================
+
+                    Route::post('/{venta}/confirmar', 'confirmar')
+                        ->middleware('permission:ventas.editar')
+                        ->name('confirmar');
+
+                    Route::post('/{venta}/anular', 'anular')
+                        ->middleware('permission:ventas.anular')
+                        ->name('anular');
+
+                    Route::get('/{venta}/editar', 'edit')
+                        ->middleware('permission:ventas.editar')
+                        ->name('edit');
+
+                    Route::put('/{venta}', 'update')
+                        ->middleware('permission:ventas.editar')
+                        ->name('update');
+
+                });
+
+            // ========================================
+            // MÓDULO DE REPORTES
+            // ========================================
+
+            Route::prefix('reportes')
+                ->name('reportes.')
+                ->controller(ReporteController::class)
+                ->middleware('permission:reportes.ver')
+                ->group(function () {
+
+                    // Panel principal de reportes
+                    Route::get('/', 'index')
+                        ->name('index');
+
+                    // Reporte de ventas
+                    Route::get('/ventas', 'ventas')
+                        ->name('ventas');
 
                 });
 

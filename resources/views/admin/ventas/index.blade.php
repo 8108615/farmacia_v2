@@ -17,7 +17,14 @@
                 </p>
             </div>
 
-            {{-- Se habilitará cuando implementemos store() y create.blade.php --}}
+            @can('ventas.crear')
+                <a href="{{ route('admin.ventas.create') }}"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
+
+                    + Nueva Venta
+
+                </a>
+            @endcan
         </div>
 
         {{-- ========================================
@@ -127,6 +134,7 @@
                             <th class="px-5 py-4 text-right">Descuento (Bs)</th>
                             <th class="px-5 py-4 text-right">Total (Bs)</th>
                             <th class="px-5 py-4 text-center">Estado</th>
+                            <th class="px-5 py-4 text-center">Acciones</th>
                         </tr>
                     </thead>
 
@@ -196,12 +204,125 @@
 
                                 </td>
 
+                                {{-- ========================================
+                                    ACCIONES
+                                ======================================== --}}
+                                <td class="whitespace-nowrap px-5 py-4 text-center">
+
+                                    <div class="flex items-center justify-center gap-2">
+
+                                        {{-- VER VENTA --}}
+                                        @can('ventas.ver')
+                                            <a
+                                                href="{{ route('admin.ventas.show', $venta->id) }}"
+                                                class="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-600"
+                                            >
+                                                Ver
+                                            </a>
+                                        @endcan
+
+                                        {{-- ========================================
+                                            EDITAR VENTA
+                                        ======================================== --}}
+                                        @can('ventas.editar')
+
+                                            @if ($venta->estado === 'Borrador')
+
+                                                <a
+                                                    href="{{ route('admin.ventas.edit', $venta->id) }}"
+                                                    class="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                                                    title="Editar venta en borrador"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                                        width="14"
+                                                        height="14"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round">
+
+                                                        <path d="M12 20h9"/>
+                                                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+
+                                                    </svg>
+
+                                                    Editar
+                                                </a>
+
+                                            @endif
+
+                                        @endcan
+
+                                        {{-- CONFIRMAR VENTA --}}
+                                        @can('ventas.editar')
+                                            @if ($venta->estado === 'Borrador')
+
+                                                <form
+                                                    id="form-confirmar-venta-{{ $venta->id }}"
+                                                    method="POST"
+                                                    action="{{ route('admin.ventas.confirmar', $venta->id) }}"
+                                                    class="inline"
+                                                >
+                                                    @csrf
+
+                                                    <button
+                                                        type="button"
+                                                        onclick="confirmarVenta(@js($venta->id), @js($venta->codigo))"
+                                                        class="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-700"
+                                                    >
+                                                        Confirmar
+                                                    </button>
+
+                                                </form>
+
+                                            @endif
+                                        @endcan
+
+                                        {{-- ========================================
+                                            ANULAR VENTA
+                                        ======================================== --}}
+                                        @can('ventas.anular')
+
+                                            @if (in_array($venta->estado, ['Borrador', 'Confirmada']))
+
+                                                <form
+                                                    id="form-anular-venta-{{ $venta->id }}"
+                                                    method="POST"
+                                                    action="{{ route('admin.ventas.anular', $venta->id) }}"
+                                                    class="inline"
+                                                >
+                                                    @csrf
+
+                                                    <button
+                                                        type="button"
+                                                        onclick="anularVenta(
+                                                            @js($venta->id),
+                                                            @js($venta->codigo),
+                                                            @js($venta->estado)
+                                                        )"
+                                                        class="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+                                                    >
+                                                        Anular
+                                                    </button>
+
+                                                </form>
+
+                                            @endif
+
+                                        @endcan
+
+                                    </div>
+
+                                </td>
+
                             </tr>
 
                         @empty
 
                             <tr>
-                                <td colspan="8" class="px-5 py-14 text-center">
+                                <td colspan="9" class="px-5 py-14 text-center">
 
                                     <div class="text-base font-medium text-zinc-300">
                                         No se encontraron ventas registradas.
@@ -233,5 +354,100 @@
         </div>
 
     </div>
+
+    {{-- ========================================
+        CONFIRMACIÓN DE VENTA
+    ======================================== --}}
+    <script>
+        function confirmarVenta(ventaId, codigoVenta) {
+
+            Swal.fire({
+                title: '¿Confirmar venta?',
+                html: `
+                    <p>¿Estás seguro de confirmar la venta
+                    <strong>${codigoVenta}</strong>?</p>
+
+                    <p style="margin-top: 12px; color: #f59e0b;">
+                        Esta operación descontará los medicamentos
+                        del inventario.
+                    </p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, confirmar venta',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#52525b',
+                background: '#18181b',
+                color: '#ffffff',
+                reverseButtons: true
+
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    document.getElementById(
+                        'form-confirmar-venta-' + ventaId
+                    ).submit();
+
+                }
+
+            });
+
+        }
+
+        // ========================================
+        // ANULAR VENTA
+        // ========================================
+        function anularVenta(ventaId, codigoVenta, estadoVenta) {
+
+            const mensajeInventario = estadoVenta === 'Confirmada'
+                ? 'Esta venta ya fue confirmada. Al anularla, los medicamentos serán reintegrados a sus lotes originales.'
+                : 'Esta venta está en borrador. Se anulará sin modificar el inventario.';
+
+            Swal.fire({
+                title: '¿Anular venta?',
+                html: `
+                    <p>
+                        ¿Estás seguro de anular la venta
+                        <strong>${codigoVenta}</strong>?
+                    </p>
+
+                    <p style="margin-top: 12px; color: #f59e0b;">
+                        ${mensajeInventario}
+                    </p>
+
+                    <p style="margin-top: 12px; color: #ef4444;">
+                        Esta operación no se puede deshacer desde el sistema.
+                    </p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, anular venta',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#52525b',
+                background: '#18181b',
+                color: '#ffffff',
+                reverseButtons: true
+
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    const formulario = document.getElementById(
+                        'form-anular-venta-' + ventaId
+                    );
+
+                    if (formulario) {
+                        formulario.submit();
+                    }
+
+                }
+
+            });
+
+        }
+    </script>
 
 </x-layouts::app>

@@ -23,7 +23,7 @@
         {{-- FORMULARIO --}}
         <form id="formVenta"
               method="POST"
-              action="#"
+              action="{{ route('admin.ventas.store') }}"
               class="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
 
             @csrf
@@ -63,12 +63,18 @@
                               rows="2"
                               placeholder="Observaciones adicionales (opcional)"
                               class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-white outline-none focus:border-blue-500">{{ old('observacion') }}</textarea>
+
+                    @error('observacion')
+                        <p class="mt-2 text-sm text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
+
             </div>
 
-            {{-- DETALLE --}}
+            {{-- DETALLE DE PRODUCTOS --}}
             <div class="border-b border-zinc-700 bg-zinc-950 px-6 py-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
+
                     <div>
                         <h2 class="font-semibold text-white">
                             Detalle de Productos
@@ -81,9 +87,10 @@
 
                     <button type="button"
                             id="btnAgregarProducto"
-                            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                         + Agregar Producto
                     </button>
+
                 </div>
             </div>
 
@@ -100,9 +107,21 @@
                     <p class="mt-3 text-sm text-red-400">{{ $message }}</p>
                 @enderror
 
+                @if ($errors->has('detalles.*'))
+                    <div class="mt-3 space-y-1">
+                        @foreach ($errors->get('detalles.*') as $mensajes)
+                            @foreach ($mensajes as $mensaje)
+                                <p class="text-sm text-red-400">
+                                    {{ $mensaje }}
+                                </p>
+                            @endforeach
+                        @endforeach
+                    </div>
+                @endif
+
             </div>
 
-            {{-- RESUMEN --}}
+            {{-- RESUMEN DE LA VENTA --}}
             <div class="border-t border-zinc-700 bg-zinc-950 px-6 py-5">
 
                 <h2 class="mb-4 font-semibold text-white">
@@ -113,20 +132,25 @@
 
                     <div class="flex justify-between text-sm">
                         <span class="text-zinc-400">Subtotal</span>
-                        <span id="resumenSubtotal" class="font-semibold text-white">
+
+                        <span id="resumenSubtotal"
+                              class="font-semibold text-white">
                             Bs 0.00
                         </span>
                     </div>
 
                     <div class="flex justify-between text-sm">
                         <span class="text-zinc-400">Descuentos</span>
-                        <span id="resumenDescuento" class="font-semibold text-red-400">
+
+                        <span id="resumenDescuento"
+                              class="font-semibold text-red-400">
                             Bs 0.00
                         </span>
                     </div>
 
                     <div class="border-t border-zinc-700 pt-3">
                         <div class="flex items-center justify-between">
+
                             <span class="font-semibold text-white">
                                 Total a Pagar
                             </span>
@@ -135,6 +159,7 @@
                                   class="text-2xl font-bold text-blue-400">
                                 Bs 0.00
                             </span>
+
                         </div>
                     </div>
 
@@ -149,10 +174,8 @@
                     Cancelar
                 </a>
 
-                <button type="button"
-                        disabled
-                        title="Se habilitará al implementar el registro de ventas"
-                        class="cursor-not-allowed rounded-lg bg-blue-600/50 px-5 py-3 text-sm font-semibold text-white/70">
+               <button type="submit"
+                        class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
                     Guardar Venta como Borrador
                 </button>
 
@@ -185,26 +208,36 @@
     @endphp
 
     <script type="application/json" id="datosProductosVenta">
-        {{ Illuminate\Support\Js::encode($datosProductosVenta) }}
+        @json($datosProductosVenta)
     </script>
 
+    {{-- JAVASCRIPT --}}
     <script>
         (() => {
+
             const init = () => {
+
                 const contenedor = document.getElementById('contenedorDetalles');
                 const botonAgregar = document.getElementById('btnAgregarProducto');
                 const datos = document.getElementById('datosProductosVenta');
+                const mensajeVacio = document.getElementById('mensajeSinProductos');
 
-                if (!contenedor || !botonAgregar || !datos) return;
-                if (contenedor.dataset.inicializado === '1') return;
+                if (!contenedor || !botonAgregar || !datos || !mensajeVacio) {
+                    return;
+                }
+
+                if (contenedor.dataset.inicializado === '1') {
+                    return;
+                }
 
                 contenedor.dataset.inicializado = '1';
 
                 const productos = JSON.parse(datos.textContent);
                 let siguienteId = 0;
 
-                const dinero = (valor) =>
-                    'Bs ' + (Number(valor) || 0).toFixed(2);
+                const dinero = (valor) => {
+                    return 'Bs ' + (Number(valor) || 0).toFixed(2);
+                };
 
                 const crearElemento = (tag, clases = '') => {
                     const elemento = document.createElement(tag);
@@ -215,11 +248,17 @@
                 const claseInput =
                     'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-3 text-sm text-white outline-none focus:border-blue-500';
 
+                // ========================================
+                // ACTUALIZAR RESUMEN
+                // ========================================
+
                 function actualizarResumen() {
+
                     let subtotal = 0;
                     let descuento = 0;
 
                     contenedor.querySelectorAll('[data-detalle]').forEach((fila) => {
+
                         const cantidad = Math.max(
                             0,
                             Number(fila.querySelector('[data-cantidad]').value) || 0
@@ -236,12 +275,14 @@
                         );
 
                         const bruto = cantidad * precio;
+                        const descuentoAplicado = Math.min(descuentoFila, bruto);
 
                         subtotal += bruto;
-                        descuento += Math.min(descuentoFila, bruto);
+                        descuento += descuentoAplicado;
 
                         fila.querySelector('[data-subtotal]').textContent =
-                            dinero(Math.max(0, bruto - descuentoFila));
+                            dinero(bruto - descuentoAplicado);
+
                     });
 
                     document.getElementById('resumenSubtotal').textContent =
@@ -253,13 +294,18 @@
                     document.getElementById('resumenTotal').textContent =
                         dinero(Math.max(0, subtotal - descuento));
 
-                    document.getElementById('mensajeSinProductos').classList.toggle(
+                    mensajeVacio.classList.toggle(
                         'hidden',
                         contenedor.children.length > 0
                     );
                 }
 
+                // ========================================
+                // AGREGAR PRODUCTO
+                // ========================================
+
                 function agregarProducto() {
+
                     const id = siguienteId++;
 
                     const fila = crearElemento(
@@ -271,51 +317,103 @@
 
                     fila.innerHTML = `
                         <div class="mb-4 flex items-center justify-between">
+
                             <h3 class="text-sm font-semibold text-white">
                                 Medicamento
                             </h3>
+
                             <button type="button"
                                     data-eliminar
                                     class="rounded-lg bg-red-600/15 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-600/25">
                                 Eliminar
                             </button>
+
                         </div>
 
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+                            <!-- PRODUCTO -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Producto</label>
-                                <select data-producto class="${claseInput}"></select>
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Producto
+                                </label>
+
+                                <select data-producto
+                                        name="detalles[${id}][producto_id]"
+                                        required
+                                        class="${claseInput}">
+                                </select>
                             </div>
 
+                            <!-- LOTE -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Lote disponible</label>
-                                <select data-lote class="${claseInput}"></select>
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Lote disponible
+                                </label>
+
+                                <select data-lote
+                                        name="detalles[${id}][lote_id]"
+                                        required
+                                        class="${claseInput}">
+                                </select>
                             </div>
 
+                            <!-- CANTIDAD -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Cantidad</label>
-                                <input data-cantidad type="number" min="1" step="1"
-                                       value="1" class="${claseInput}">
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Cantidad
+                                </label>
+
+                                <input data-cantidad
+                                       name="detalles[${id}][cantidad]"
+                                       type="number"
+                                       min="1"
+                                       step="1"
+                                       value="1"
+                                       required
+                                       class="${claseInput}">
                             </div>
 
+                            <!-- PRECIO -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Precio Unitario (Bs)</label>
-                                <input data-precio type="number" readonly
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Precio Unitario (Bs)
+                                </label>
+
+                                <input data-precio
+                                       type="number"
+                                       readonly
                                        class="${claseInput} bg-zinc-900">
                             </div>
 
+                            <!-- DESCUENTO -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Descuento (Bs)</label>
-                                <input data-descuento type="number" min="0" step="0.01"
-                                       value="0.00" class="${claseInput}">
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Descuento (Bs)
+                                </label>
+
+                                <input data-descuento
+                                       name="detalles[${id}][descuento]"
+                                       type="number"
+                                       min="0"
+                                       step="0.01"
+                                       value="0.00"
+                                       required
+                                       class="${claseInput}">
                             </div>
 
+                            <!-- SUBTOTAL -->
                             <div>
-                                <label class="mb-2 block text-xs text-zinc-300">Subtotal</label>
-                                <div data-subtotal class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm font-bold text-blue-400">
+                                <label class="mb-2 block text-xs text-zinc-300">
+                                    Subtotal
+                                </label>
+
+                                <div data-subtotal
+                                     class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm font-bold text-blue-400">
                                     Bs 0.00
                                 </div>
                             </div>
+
                         </div>
 
                         <p data-stock class="mt-3 text-xs text-zinc-400"></p>
@@ -327,18 +425,27 @@
                     const inputCantidad = fila.querySelector('[data-cantidad]');
                     const textoStock = fila.querySelector('[data-stock]');
 
-                    selectProducto.add(new Option('Seleccione un medicamento', ''));
+                    selectProducto.add(
+                        new Option('Seleccione un medicamento', '')
+                    );
 
                     productos.forEach((producto) => {
+
                         selectProducto.add(
                             new Option(
                                 `${producto.codigo} - ${producto.nombre}`,
                                 producto.id
                             )
                         );
+
                     });
 
+                    // ========================================
+                    // CAMBIAR PRODUCTO
+                    // ========================================
+
                     function cambiarProducto() {
+
                         const producto = productos.find(
                             (p) => String(p.id) === selectProducto.value
                         );
@@ -351,22 +458,33 @@
                             ? Number(producto.precio_venta).toFixed(2)
                             : '';
 
+                        inputCantidad.max = '';
+                        textoStock.textContent = '';
+
                         if (producto) {
+
                             producto.lotes.forEach((lote) => {
+
                                 selectLote.add(
                                     new Option(
                                         `${lote.numero_lote} | Stock: ${lote.stock_actual} | Vence: ${lote.fecha_vencimiento}`,
                                         lote.id
                                     )
                                 );
+
                             });
+
                         }
 
-                        textoStock.textContent = '';
                         actualizarResumen();
                     }
 
+                    // ========================================
+                    // CAMBIAR LOTE
+                    // ========================================
+
                     function cambiarLote() {
+
                         const producto = productos.find(
                             (p) => String(p.id) === selectProducto.value
                         );
@@ -375,7 +493,10 @@
                             (l) => String(l.id) === selectLote.value
                         );
 
-                        inputCantidad.max = lote ? lote.stock_actual : '';
+                        inputCantidad.max = lote
+                            ? lote.stock_actual
+                            : '';
+
                         textoStock.textContent = lote
                             ? `Stock disponible: ${lote.stock_actual} unidades. Vencimiento: ${lote.fecha_vencimiento}.`
                             : '';
@@ -383,18 +504,36 @@
                         actualizarResumen();
                     }
 
-                    selectProducto.addEventListener('change', cambiarProducto);
-                    selectLote.addEventListener('change', cambiarLote);
+                    // ========================================
+                    // EVENTOS
+                    // ========================================
+
+                    selectProducto.addEventListener(
+                        'change',
+                        cambiarProducto
+                    );
+
+                    selectLote.addEventListener(
+                        'change',
+                        cambiarLote
+                    );
 
                     fila.querySelectorAll('input').forEach((input) => {
-                        input.addEventListener('input', actualizarResumen);
+
+                        input.addEventListener(
+                            'input',
+                            actualizarResumen
+                        );
+
                     });
 
                     fila.querySelector('[data-eliminar]').addEventListener(
                         'click',
                         () => {
+
                             fila.remove();
                             actualizarResumen();
+
                         }
                     );
 
@@ -402,13 +541,22 @@
                     actualizarResumen();
                 }
 
-                botonAgregar.addEventListener('click', agregarProducto);
+                botonAgregar.addEventListener(
+                    'click',
+                    agregarProducto
+                );
 
                 actualizarResumen();
             };
 
-            document.addEventListener('DOMContentLoaded', init);
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+
             document.addEventListener('livewire:navigated', init);
+
         })();
     </script>
 
