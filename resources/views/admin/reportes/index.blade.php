@@ -58,18 +58,21 @@
                         'descripcion' => 'Analiza las compras realizadas, proveedores y montos de adquisición.',
                         'icono' => 'shopping-cart',
                         'color' => 'emerald',
+                        'ruta' => 'admin.reportes.compras',
                     ],
                     [
                         'titulo' => 'Reporte de Inventario',
                         'descripcion' => 'Consulta existencias disponibles por medicamento y lote.',
                         'icono' => 'cube',
                         'color' => 'violet',
+                        'ruta' => 'admin.reportes.inventario',
                     ],
                     [
                         'titulo' => 'Reporte de Vencimientos',
                         'descripcion' => 'Identifica medicamentos vencidos y próximos a vencer.',
                         'icono' => 'calendar-days',
                         'color' => 'amber',
+                        'ruta' => 'admin.reportes.vencimientos',
                     ],
                     [
                         'titulo' => 'Movimientos de Inventario',

@@ -469,6 +469,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('/ventas', 'ventas')
                         ->name('ventas');
 
+                    // Exportar reporte de ventas a PDF
+                    Route::get('/ventas/pdf', 'ventasPdf')
+                        ->name('ventas.pdf');
+
+                    // ========================================
+                    // REPORTE DE COMPRAS
+                    // ========================================
+
+                    Route::get('/compras', 'compras')
+                        ->name('compras');
+
+                    Route::get('/compras/pdf', 'comprasPdf')
+                        ->name('compras.pdf');
+
+                    Route::get('/inventario', 'inventario')
+                        ->name('inventario');
+
+                    Route::get('/inventario/pdf', 'inventarioPdf')
+                        ->name('inventario.pdf');
+
+                    // Reporte de vencimientos
+                    Route::get('/vencimientos', 'vencimientos')
+                        ->name('vencimientos');
+
+                    Route::get('/vencimientos/pdf', 'vencimientosPdf')
+                        ->name('vencimientos.pdf');
                 });
 
         });
