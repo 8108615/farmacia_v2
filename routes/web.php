@@ -495,6 +495,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
                     Route::get('/vencimientos/pdf', 'vencimientosPdf')
                         ->name('vencimientos.pdf');
+
+                    Route::get('/movimientos', 'movimientos')
+                        ->name('movimientos');
+
+                    Route::get('/movimientos/pdf', 'movimientosPdf')
+                        ->name('movimientos.pdf');
+
+                    Route::get('/productos-vendidos', 'productosVendidos')
+                        ->name('productos-vendidos');
+
+                    Route::get('/productos-vendidos/pdf', 'productosVendidosPdf')
+                        ->name('productos-vendidos.pdf');
                 });
 
         });

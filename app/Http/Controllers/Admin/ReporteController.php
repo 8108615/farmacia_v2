@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Venta;
+use App\Models\VentaDetalle;
 use App\Models\Compra;
 use App\Models\Proveedor;
 use App\Models\Categoria;
 use App\Models\Lote;
+use App\Models\MovimientoInventario;
 use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -622,5 +625,146 @@ class ReporteController extends Controller
         $consulta->orderBy('producto_id')->orderBy('fecha_vencimiento')->orderBy('id');
 
         return compact('consulta', 'filtros', 'categorias', 'opciones', 'indicadores', 'hoy', 'limite');
+    }
+
+    public function movimientos(Request $request)
+    {
+        $datos = $this->datosMovimientos($request);
+        $datos['movimientos'] = $datos['consulta']->paginate(15)->appends($datos['filtros']);
+
+        return view('admin.reportes.movimientos', $datos);
+    }
+
+    public function movimientosPdf(Request $request)
+    {
+        $datos = $this->datosMovimientos($request);
+        $datos['movimientos'] = $datos['consulta']->get();
+
+        return Pdf::loadView('admin.reportes.pdf.movimientos', $datos)
+            ->setPaper('a4', 'landscape')
+            ->download('Reporte_Movimientos_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    private function datosMovimientos(Request $request): array
+    {
+        $tipos = [
+            'Entrada' => 'Unidades de entrada',
+            'Salida' => 'Unidades de salida',
+            'Ajuste Entrada' => 'Unidades de ajuste de entrada',
+            'Ajuste Salida' => 'Unidades de ajuste de salida',
+        ];
+        $filtros = $request->validate([
+            'buscar' => ['nullable', 'string', 'max:200'],
+            'tipo' => ['nullable', Rule::in(array_keys($tipos))],
+            'fecha_desde' => ['nullable', 'date_format:Y-m-d'],
+            'fecha_hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_desde'],
+        ]);
+
+        $consulta = MovimientoInventario::query()->with([
+            'lote' => fn ($lote) => $lote->withTrashed(),
+            'lote.producto' => fn ($producto) => $producto->withTrashed(),
+            'usuario' => fn ($usuario) => $usuario->withTrashed(),
+        ]);
+
+        if (($filtros['buscar'] ?? '') !== '') {
+            $patron = '%' . $filtros['buscar'] . '%';
+            $consulta->whereHas('lote', function ($lote) use ($patron) {
+                $lote->withTrashed()->where(function ($coincidencias) use ($patron) {
+                    $coincidencias->where('numero_lote', 'like', $patron)
+                        ->orWhereHas('producto', function ($producto) use ($patron) {
+                            $producto->withTrashed()->where(function ($datos) use ($patron) {
+                                $datos->where('nombre', 'like', $patron)
+                                    ->orWhere('codigo', 'like', $patron)
+                                    ->orWhere('codigo_barras', 'like', $patron);
+                            });
+                        });
+                });
+            });
+        }
+
+        $consulta->when($filtros['tipo'] ?? null, fn ($query, $tipo) => $query->where('tipo', $tipo))
+            ->when($filtros['fecha_desde'] ?? null, fn ($query, $fecha) => $query->where('created_at', '>=', $fecha . ' 00:00:00'))
+            ->when($filtros['fecha_hasta'] ?? null, function ($query, $fecha) {
+                $limite = \Illuminate\Support\Carbon::parse($fecha)->addDay()->startOfDay();
+
+                return $query->where('created_at', '<', $limite);
+            });
+
+        $totales = (clone $consulta)->toBase()
+            ->selectRaw('tipo, COUNT(*) AS movimientos, SUM(cantidad) AS unidades')
+            ->groupBy('tipo')->get()->keyBy('tipo');
+        $indicadores = ['Movimientos' => $totales->sum('movimientos')];
+        foreach ($tipos as $tipo => $etiqueta) {
+            $indicadores[$etiqueta] = $totales->get($tipo)?->unidades ?? 0;
+        }
+
+        $consulta->orderByDesc('created_at')->orderByDesc('id');
+
+        return compact('consulta', 'filtros', 'tipos', 'indicadores');
+    }
+
+    public function productosVendidos(Request $request)
+    {
+        $datos = $this->datosProductosVendidos($request);
+        $datos['productos'] = $datos['consulta']->paginate(15)->appends($datos['filtros']);
+        $datos['posicionInicial'] = $datos['productos']->firstItem() ?? 1;
+
+        return view('admin.reportes.productos-vendidos', $datos);
+    }
+
+    public function productosVendidosPdf(Request $request)
+    {
+        $datos = $this->datosProductosVendidos($request);
+        $datos['productos'] = $datos['consulta']->get();
+        $datos['posicionInicial'] = 1;
+
+        return Pdf::loadView('admin.reportes.pdf.productos-vendidos', $datos)
+            ->setPaper('a4', 'landscape')
+            ->download('Reporte_Productos_Mas_Vendidos_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    private function datosProductosVendidos(Request $request): array
+    {
+        $filtros = $request->validate([
+            'fecha_desde' => ['nullable', 'date_format:Y-m-d'],
+            'fecha_hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_desde'],
+            'categoria_id' => ['nullable', 'integer', Rule::exists('categorias', 'id')],
+        ]);
+
+        $ventasPorProducto = VentaDetalle::query()
+            ->join('ventas', 'ventas.id', '=', 'venta_detalles.venta_id')
+            ->join('productos', 'productos.id', '=', 'venta_detalles.producto_id')
+            ->where('ventas.estado', 'Confirmada')
+            ->when($filtros['fecha_desde'] ?? null, fn ($query, $fecha) => $query
+                ->where('ventas.fecha_venta', '>=', $fecha . ' 00:00:00'))
+            ->when($filtros['fecha_hasta'] ?? null, function ($query, $fecha) {
+                $limite = \Illuminate\Support\Carbon::parse($fecha)->addDay()->startOfDay();
+
+                return $query->where('ventas.fecha_venta', '<', $limite);
+            })
+            ->when($filtros['categoria_id'] ?? null, fn ($query, $categoria) => $query
+                ->where('productos.categoria_id', $categoria))
+            ->groupBy('venta_detalles.producto_id')
+            ->selectRaw('venta_detalles.producto_id, SUM(venta_detalles.cantidad) AS unidades');
+
+        $consulta = DB::query()->fromSub($ventasPorProducto->toBase(), 'ranking');
+        $totales = (clone $consulta)
+            ->selectRaw('COUNT(*) AS productos, COALESCE(SUM(ranking.unidades), 0) AS unidades')
+            ->first();
+        $indicadores = [
+            'Productos vendidos' => $totales->productos,
+            'Unidades vendidas' => $totales->unidades,
+        ];
+
+        $consulta->join('productos', 'productos.id', '=', 'ranking.producto_id')
+            ->leftJoin('categorias', 'categorias.id', '=', 'productos.categoria_id')
+            ->select('productos.nombre', 'productos.codigo', 'categorias.nombre as categoria', 'ranking.unidades')
+            ->orderByDesc('ranking.unidades')
+            ->orderBy('productos.nombre')
+            ->orderBy('productos.id');
+
+        $categorias = Categoria::withTrashed()->orderBy('nombre')->pluck('nombre', 'id');
+
+        return compact('consulta', 'filtros', 'indicadores', 'categorias');
     }
 }

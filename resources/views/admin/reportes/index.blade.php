@@ -79,12 +79,14 @@
                         'descripcion' => 'Consulta entradas, salidas y ajustes realizados en el inventario.',
                         'icono' => 'arrows-right-left',
                         'color' => 'cyan',
+                        'ruta' => 'admin.reportes.movimientos',
                     ],
                     [
                         'titulo' => 'Productos Más Vendidos',
                         'descripcion' => 'Analiza los medicamentos con mayor cantidad de ventas.',
                         'icono' => 'chart-bar',
                         'color' => 'rose',
+                        'ruta' => 'admin.reportes.productos-vendidos',
                     ],
                 ];
             @endphp

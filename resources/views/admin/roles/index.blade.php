@@ -14,10 +14,14 @@
                 </p>
             </div>
 
-            <a href="{{ route('admin.roles.create') }}"
-            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
-                + Crear nuevo
-            </a>
+            @role('SUPER ADMIN')
+            @can('roles.crear')
+                <a href="{{ route('admin.roles.create') }}"
+                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
+                    + Crear nuevo
+                </a>
+            @endcan
+            @endrole
         </div>
 
         {{-- Buscador --}}
@@ -103,42 +107,48 @@
                                             Ver
                                         </a>
 
-                                        @if ($rol->name === 'SUPER ADMIN')
-                                            <span
-                                                class="cursor-not-allowed rounded-md bg-zinc-700 px-3 py-2 text-xs text-zinc-400"
-                                                title="El rol SUPER ADMIN no puede modificarse">
-                                                Protegido
-                                            </span>
-                                        @else
-                                            <a href="{{ route('admin.roles.edit', $rol->id) }}"
-                                            class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700">
-                                                Editar
-                                            </a>
-                                        @endif
+                                        @role('SUPER ADMIN')
+                                            @can('roles.editar')
+                                                @if ($rol->name === 'SUPER ADMIN')
+                                                    <span
+                                                        class="cursor-not-allowed rounded-md bg-zinc-700 px-3 py-2 text-xs text-zinc-400"
+                                                        title="El rol SUPER ADMIN no puede modificarse">
+                                                        Protegido
+                                                    </span>
+                                                @else
+                                                    <a href="{{ route('admin.roles.edit', $rol->id) }}"
+                                                    class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700">
+                                                        Editar
+                                                    </a>
+                                                @endif
+                                            @endcan
 
-                                        @if ($rol->name === 'SUPER ADMIN')
-                                            <span class="rounded-md bg-zinc-700 px-3 py-2 text-xs text-zinc-300">
-                                                Protegido
-                                            </span>
-                                        @else
-                                            <form
-                                                id="form-eliminar-{{ $rol->id }}"
-                                                action="{{ route('admin.roles.destroy', $rol->id) }}"
-                                                method="POST"
-                                                class="inline"
-                                            >
-                                                @csrf
-                                                @method('DELETE')
+                                            @can('roles.eliminar')
+                                                @if ($rol->name === 'SUPER ADMIN')
+                                                    <span class="rounded-md bg-zinc-700 px-3 py-2 text-xs text-zinc-300">
+                                                        Protegido
+                                                    </span>
+                                                @else
+                                                    <form
+                                                        id="form-eliminar-{{ $rol->id }}"
+                                                        action="{{ route('admin.roles.destroy', $rol->id) }}"
+                                                        method="POST"
+                                                        class="inline"
+                                                    >
+                                                        @csrf
+                                                        @method('DELETE')
 
-                                                <button
-                                                    type="button"
-                                                    onclick="confirmarEliminarRol(@js($rol->id), @js($rol->name))"
-                                                    class="rounded-md bg-red-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-600"
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            </form>
-                                        @endif
+                                                        <button
+                                                            type="button"
+                                                            onclick="confirmarEliminarRol(@js($rol->id), @js($rol->name))"
+                                                            class="rounded-md bg-red-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-600"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endcan
+                                        @endrole
 
                                     </div>
                                 </td>
