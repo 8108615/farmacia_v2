@@ -1,4 +1,3 @@
-
 <?php
 
 use Illuminate\Support\Facades\Route;
@@ -11,6 +10,7 @@ use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\CompraController;
 use App\Http\Controllers\Admin\VentaController;
 use App\Http\Controllers\Admin\ReporteController;
+use App\Http\Controllers\DashboardController;
 
 // ============================================
 // PÁGINA PRINCIPAL
@@ -28,8 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // DASHBOARD
     // ========================================
 
-    Route::view('dashboard', 'dashboard')
-        ->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard');
 
     // ========================================
     // ADMINISTRACIÓN
